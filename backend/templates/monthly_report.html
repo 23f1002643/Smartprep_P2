@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Monthly Activity Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .header { background-color: #28a745; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background-color: #f8f9fa; }
+        .stats { display: flex; justify-content: space-around; margin: 20px 0; }
+        .stat-box { background-color: white; padding: 20px; border-radius: 5px; text-align: center; min-width: 150px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th { background-color: #e9ecef; padding: 10px; text-align: left; }
+        td { padding: 8px; border-bottom: 1px solid #eee; }
+        .footer { text-align: center; margin-top: 20px; color: #6c757d; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h2>📊 Monthly Activity Report - {{ month }}</h2>
+        <p>Your Quiz Performance Summary</p>
+    </div>
+    <div class="content">
+        <h3>Hello {{ name }}!</h3>
+        <p>Here's your quiz performance summary for {{ month }}. Keep up the great work!</p>
+
+        <div class="stats">
+            <div class="stat-box">
+                <h4>🎯 Total Quizzes</h4>
+                <h2>{{ total_quizzes }}</h2>
+            </div>
+            <div class="stat-box">
+                <h4>📈 Average Score</h4>
+                <h2>{{ average_score }}%</h2>
+            </div>
+        </div>
+
+        <h4>📚 Detailed Quiz Results:</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Quiz Name</th>
+                    <th>Subject</th>
+                    <th>Chapter</th>
+                    <th>Score</th>
+                    <th>Percentage</th>
+                    <th>Date & Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ quiz_rows }}
+            </tbody>
+        </table>
+
+        <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0;">
+            <h4>💡 Performance Insights:</h4>
+            <ul>
+                <li>You completed {{ total_quizzes }} quiz{{ plural_suffix }} this month</li>
+                <li>Your average score was {{ average_score }}%</li>
+                <li>{{ performance_feedback }}</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="http://localhost:5000/login" style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px;">Continue Learning</a>
+        </div>
+    </div>
+    <div class="footer">
+        <p>Best regards,<br>Quiz Master Team</p>
+        <p><small>This report was automatically generated based on your quiz activity.</small></p>
+    </div>
+</div>
+</body>
+</html>
