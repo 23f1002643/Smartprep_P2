@@ -53,11 +53,12 @@ class AccountLoginAPI(Resource):
 
         username = info.get('username')
         pwd = info.get('password')
-
+        print(f"Login attempt with username: {username} and {pwd}")  # Debugging line to check username
         if not username or not pwd:
             return {"msg": "Username and password are required"}, 400
 
         user = Account.query.filter_by(username=username).first()
+        print(f"User = {user}")  # Debugging line to check user retrieval
         if user and user.pwd == pwd:
             tkn = create_access_token(identity=str(user.id),additional_claims={"name": user.username,"role": user.role})
             print(f"User {user.username} logged in successfully. on {datetime.now()}")
@@ -82,24 +83,96 @@ class AccountLogoutAPI(Resource):
         # session.clear()
         print(f"Token {jti} added to blocklist")
         return {"msg": "You have been Logged out successfully!"}, 200
-
 class AccountDashboardAPI(Resource):
-    def get(self):
-        if 'user_id' not in session:
-            return redirect('/login')
-
-        user = Account.query.get(session['user_id'])
-
-        if user.role == 'admin':
-            return render_template('admin/dashboard.html')
-
-        quizzes = Assessment.query.all()  # type: ignore
-        subjects = Courses.query.all()
-        today = datetime.today().date()
-        return render_template('user/dashboard.html', first_name=user.f_name, subjects=subjects, quizzes=quizzes, today=today)
-class SubManagementAPI(Resource):
     @jwt_required()
     @caching.cached(timeout=60)
+    def get(self):
+        claims = get_jwt()
+        today = datetime.now().date()
+        assessments = Assessment.query.filter(Assessment.date_of_quiz >= today).all()
+        subjects = Courses.query.all()
+        modules = CourseModule.query.all()
+        quts = AssessmentProblem.query.all()
+        users = Account.query.all()
+        performances = ExamPerformance.query.all()
+        if claims.get('role') == 'admin':
+            return {
+                'quizzes': [
+                    {
+                        'id': a.id,
+                        'name': a.q_name,
+                        'date': a.date_of_quiz.strftime('%Y-%m-%d'), 
+                        'time': a.time_duration.strftime('%H:%M:%S'),  
+                        'remarks': a.remarks
+                    } for a in assessments
+                ],
+                'subjects': [{'id': s.id, 'name': s.s_name} for s in subjects],
+                'modules': [{'id': m.id, 'name': m.name, 'subject_id': m.subject_id} for m in modules],
+                'quts': [
+                    {
+                        'id': q.id,
+                        'que_no': q.que_no,
+                        'statement': q.statement,
+                        'opt1': q.opt1,
+                        'opt2': q.opt2,
+                        'opt3': q.opt3,
+                        'opt4': q.opt4,
+                        'cor_opt': q.cor_opt
+                    } for q in quts
+                ],
+                'users': [{'id': u.id, 'username': u.username, 'role': u.role} for u in users],
+                'scores': [
+                    {
+                        'id': p.id,
+                        'user_id': p.user_id,
+                        'quiz_id': p.quiz_id,
+                        'score': p.score,
+                        'time_of_attempt': p.time_of_attempt.strftime('%Y-%m-%d %H:%M:%S')  
+                    } for p in performances
+                ]
+            }, 200
+        else:
+            user_id = get_jwt_identity()
+            user = Account.query.get(user_id)
+            performances = ExamPerformance.query.filter_by(user_id=user.id).all()   
+        
+            return {
+                'subjects': [{'id': s.id, 'name': s.s_name} for s in subjects],
+                'modules': [{'id': m.id, 'name': m.name, 'subject_id': m.subject_id} for m in modules],
+                'quizzes': [
+                    {
+                        'id': a.id,
+                        'name': a.q_name,
+                        'date': a.date_of_quiz.strftime('%Y-%m-%d'), 
+                        'time': a.time_duration.strftime('%H:%M:%S'),  
+                        'remarks': a.remarks
+                    } for a in assessments
+                ],
+                'quts': [
+                    {
+                        'id': q.id,
+                        'que_no': q.que_no,
+                        'statement': q.statement,
+                        'opt1': q.opt1,
+                        'opt2': q.opt2,
+                        'opt3': q.opt3,
+                        'opt4': q.opt4,
+                        'cor_opt': q.cor_opt
+                    } for q in quts
+                ],
+                'scores': [
+                    {
+                        'id': p.id,
+                        'user_id': p.user_id,
+                        'quiz_id': p.quiz_id,
+                        'score': p.score,
+                        'time_of_attempt': p.time_of_attempt.strftime('%Y-%m-%d %H:%M:%S')  
+                    } for p in performances
+                ]
+            }, 200
+class SubManagementAPI(Resource):
+    @jwt_required()
+    # @caching.cached(timeout=60)
     def get(self):
         user_id = get_jwt_identity()
         claims = get_jwt()
@@ -110,7 +183,7 @@ class SubManagementAPI(Resource):
         return [{
             'id': sub.id,
             'name': sub.s_name,
-            'description': sub.remarks
+            'desc': sub.remarks
         } for sub in subjects], 200
 
     @jwt_required()
@@ -129,6 +202,7 @@ class SubManagementAPI(Resource):
         new_sub = Courses(s_name=name, remarks=desc)
         db.session.add(new_sub)
         db.session.commit()
+        caching.delete_memoized(SubManagementAPI.get)
         return {"msg": f"Subject '{name}' added successfully!"}, 201
 
     
@@ -152,6 +226,8 @@ class SubManagementAPI(Resource):
         if desc:
             subject.remarks = desc      
         db.session.commit()
+        #Invalidate cache after DB update
+        caching.delete_memoized(SubManagementAPI.get)
         return {"msg": f"Your subject '{subject.s_name}' updated successfully!"}, 200
     
     @jwt_required()
@@ -165,6 +241,7 @@ class SubManagementAPI(Resource):
         if subject is not None:
             db.session.delete(subject)
             db.session.commit()
+            caching.delete_memoized(SubManagementAPI.get)
             return {"msg": f"Subject '{subject.s_name}' successfully removed!"}, 200
         else:
             return {"msg": "Subject not found!"}, 404

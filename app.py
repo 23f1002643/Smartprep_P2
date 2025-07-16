@@ -21,7 +21,6 @@ from backend.api  import (
 )
 
 def init_app(): # Function to initialize Flask app
-    # Setting absolute path to the instance folder
     instance_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'backend'))
 
     # Creating the instance folder 
@@ -32,9 +31,6 @@ def init_app(): # Function to initialize Flask app
     db.init_app(ns)
     caching.init_app(ns)  # Initializing cache with Flask app
     with ns.app_context():
-        # celery = make_celery(ns)
-        # print("✅ Celery initialized with Flask app.")
-        # celery.conf.beat_schedule = CeleryConfig.beat_schedule
         db.create_all()
         print("✅ Database tables created successfully.") 
         admin = Account.query.filter_by(username='admin').first()
@@ -75,15 +71,15 @@ ns.config['CACHE_REDIS_URL'] = config_settings['CACHE_REDIS_URL']
 
 jwt = JWTManager(ns)
 # <------------------------------------------------Admin APIs---------------------------------------------------------------->
-my_api.add_resource(ModuleMngAPI,'/admin/sub/<int:sub_id>', '/admin/sub/<int:sub_id>/chap/<int:chap_id>')
-my_api.add_resource(QueMngAPI, '/admin/sub/<int:sub_id>/chap/<int:chap_id>/quiz/<int:exam_id>', '/admin/sub/<int:sub_id>/chap/<int:chap_id>/quiz/<int:exam_id>/que/<int:que_id>')
-my_api.add_resource(AssessmentMngAPI, '/chap/<int:chap_id>', '/admin/sub/<int:sub_id>/chap/<int:chap_id>/quiz/<int:exam_id>')
-my_api.add_resource(AccountRegisterAPI, '/register')
-my_api.add_resource(AccountLoginAPI, '/', '/login')
-my_api.add_resource(AccountLogoutAPI, '/logout') 
-my_api.add_resource(AccountDashboardAPI, '/dashboard')
-my_api.add_resource(SubManagementAPI, '/sub', '/sub/<int:sub_id>')
-my_api.add_resource(UserMngAPI, '/admin/user', '/admin/user/<int:user_id>')
+my_api.add_resource(ModuleMngAPI,'/api/admin/sub/<int:sub_id>/chap', '/api/admin/sub/<int:sub_id>/chap/<int:chap_id>')
+my_api.add_resource(QueMngAPI, '/api/admin/sub/<int:sub_id>/chap/<int:chap_id>/quiz/<int:exam_id>/que', '/api/admin/sub/<int:sub_id>/chap/<int:chap_id>/quiz/<int:exam_id>/que/<int:que_id>')
+my_api.add_resource(AssessmentMngAPI, '/api/chap/<int:chap_id>/quiz', '/api/admin/sub/<int:sub_id>/chap/<int:chap_id>/quiz/<int:exam_id>')
+my_api.add_resource(AccountRegisterAPI, '/api/register')
+my_api.add_resource(AccountLoginAPI, '/api/login')
+my_api.add_resource(AccountLogoutAPI, '/api/logout') 
+my_api.add_resource(AccountDashboardAPI, '/api/dashboard')
+my_api.add_resource(SubManagementAPI, '/api/sub', '/api/sub/<int:sub_id>')
+my_api.add_resource(UserMngAPI, '/api/admin/user', '/api/admin/user/<int:user_id>')
 
 
 jwt_blocklist = config_settings['JWT_BLOCKLIST']
@@ -107,7 +103,6 @@ def check_if_token_revoked(jwt_header, jwt_payload):
 # def missing_token_callback(error):
 #     print(f"Missing token: {error}")
 #     return {"msg": "Authorization token is required"}, 401
-
 
 if __name__ == '__main__':   
     ns.run(debug=True)

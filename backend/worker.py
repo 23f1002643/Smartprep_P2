@@ -14,7 +14,7 @@ class CeleryConfig:
         },
         "daily-user-reminder-at-6pm": {
             "task": "backend.tasks.email_for_daily_reminders",
-            "schedule": crontab(hour=1, minute=39),  # 6 PM IST daily
+            "schedule": crontab(hour=23, minute=23),  # 6 PM IST daily
             "args": (),
         },
         "monthly-report-generation": {
