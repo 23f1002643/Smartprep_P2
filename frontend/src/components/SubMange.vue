@@ -1,12 +1,12 @@
 <template>
-  <div class="container mt-4">
+  <div class="container mt-3">
     <!-- Add Subject Card -->
-    <div class="card shadow-sm p-4 bg-white">
-      <h2 class="mb-4 text-primary text-center">📚 Manage Subjects</h2>
+    <div class="card shadow-sm p-3 bg-white">
+      <h2 class="mb-2 text-primary text-center">📚 Manage Subjects</h2>
 
       <!-- Add Subject Form -->
       <form @submit.prevent="addSubject">
-        <div class="mb-3">
+        <div class="mb-2">
           <label for="name" class="form-label text-dark">Subject Name</label>
           <input
             type="text"
@@ -23,7 +23,7 @@
             id="description"
             v-model="desc"
             class="form-control text-dark bg-light"
-            rows="3"
+            rows="1"
             placeholder="Enter subject remarks"
           ></textarea>
         </div>
@@ -48,9 +48,9 @@
             <p class="card-text text-muted mb-0">{{ subject.desc }}</p>
           </div>
           <div>
-            <button @click="deleteSubject(subject.id)" class="btn btn-outline-danger">
-              🗑️ Delete
-            </button>
+            <router-link :to="{ name: 'chap_mange', params: { subId: subject.id } }" class="btn btn-outline-secondary me-2">📖 View</router-link>
+            <button class="btn btn-outline-primary me-2" @click="editSubject(subject)">✏️ Edit</button>
+            <button @click="deleteSubject(subject.id)" class="btn btn-outline-danger">🗑️ Delete</button>
           </div>
         </div>
       </div>
@@ -59,6 +59,32 @@
         No subjects added yet.
       </div>
     </div>
+
+    <!-- Edit Subject Modal -->
+    <div class="modal fade" id="editSubjectModal" tabindex="-1" aria-labelledby="editSubjectModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editSubjectModalLabel">Edit Subject</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form @submit.prevent="updateSubject">
+              <div class="mb-3">
+                <label for="edit_name" class="form-label">Subject Name</label>
+                <input type="text" id="edit_name" v-model="editSubjectData.name" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label for="edit_description" class="form-label">Remarks</label>
+                <textarea id="edit_description" v-model="editSubjectData.desc" class="form-control" rows="3"></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary">Save changes</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -69,6 +95,11 @@ export default {
       s_name: '',
       desc: '',
       subjects: [],
+      editSubjectData: {
+        id: null,
+        name: '',
+        desc: '',
+      },
     };
   },
   mounted() {
@@ -137,6 +168,38 @@ export default {
         console.error('Delete subject failed:', err);
       }
     },
+    editSubject(subject) {
+      this.editSubjectData = { ...subject };
+      const editModal = new bootstrap.Modal(document.getElementById('editSubjectModal'));
+      editModal.show();
+    },
+    async updateSubject() {
+      try {
+        const res = await fetch(`/api/sub/${this.editSubjectData.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+          body: JSON.stringify({
+            s_name: this.editSubjectData.name,
+            remarks: this.editSubjectData.desc,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`✏️ Subject "${this.editSubjectData.name}" updated successfully!`);
+          await this.loadSubjects();
+          const editModal = bootstrap.Modal.getInstance(document.getElementById('editSubjectModal'));
+          editModal.hide();
+        } else {
+          console.warn('Update subject API error:', data);
+        }
+      } catch (err) {
+        console.error('Update subject failed:', err);
+      }
+    },
   },
 };
 </script>
+

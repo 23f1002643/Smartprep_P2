@@ -10,7 +10,7 @@
         <div class="card-body">
           <h5 class="card-title">Subjects</h5>
           <p class="card-text">Access and manage subjects, chapters, quizzes, and questions.</p>
-          <router-link to="/admin/sub" class="btn btn-primary">Manage Subjects</router-link>
+          <router-link to="/sub" class="btn btn-primary">Manage Subjects</router-link>
         </div>
       </div>
     </div>
@@ -20,7 +20,7 @@
       <div class="card h-100 shadow-sm">
         <div class="card-body">
           <h5 class="card-title">Users</h5>
-          <p class="card-text">Review and handle registered user accounts.</p>
+          <p class="card-text">Manage and authenticate user accounts for secure platform access.</p>
           <router-link to="/admin/users" class="btn btn-primary">Manage Users</router-link>
         </div>
       </div>
@@ -57,7 +57,7 @@ export default {
     const role = localStorage.getItem('role');
     if (role !== 'admin') {
       alert('Access denied. Admins only.');
-      this.$router.push('/api/login'); // Redirect non-admin users
+      this.$router.push('/login'); // Redirect non-admin users
     } else {
       this.loadAdminData();
 

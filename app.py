@@ -73,7 +73,7 @@ jwt = JWTManager(ns)
 # <------------------------------------------------Admin APIs---------------------------------------------------------------->
 my_api.add_resource(ModuleMngAPI,'/api/admin/sub/<int:sub_id>/chap', '/api/admin/sub/<int:sub_id>/chap/<int:chap_id>')
 my_api.add_resource(QueMngAPI, '/api/admin/sub/<int:sub_id>/chap/<int:chap_id>/quiz/<int:exam_id>/que', '/api/admin/sub/<int:sub_id>/chap/<int:chap_id>/quiz/<int:exam_id>/que/<int:que_id>')
-my_api.add_resource(AssessmentMngAPI, '/api/chap/<int:chap_id>/quiz', '/api/admin/sub/<int:sub_id>/chap/<int:chap_id>/quiz/<int:exam_id>')
+my_api.add_resource(AssessmentMngAPI, '/api/admin/sub/<int:sub_id>/chap/<int:chap_id>/quiz', '/api/admin/sub/<int:sub_id>/chap/<int:chap_id>/quiz/<int:exam_id>')
 my_api.add_resource(AccountRegisterAPI, '/api/register')
 my_api.add_resource(AccountLoginAPI, '/api/login')
 my_api.add_resource(AccountLogoutAPI, '/api/logout') 

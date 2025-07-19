@@ -1,7 +1,14 @@
-import { createApp } from 'vue'
-import SmartPrep from './App.vue'
-import router from './router'
+import { createApp } from 'vue';
+import SmartPrep from './App.vue';
+import router from './router';
+import { createPinia } from 'pinia';
 
-const app = createApp(SmartPrep)
-app.use(router)
-app.mount('#app')
+const pinia = createPinia();
+
+const app = createApp(SmartPrep);
+
+app.use(router);
+
+app.use(pinia);
+
+app.mount('#app');

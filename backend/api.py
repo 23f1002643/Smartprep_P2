@@ -6,7 +6,7 @@ from datetime import datetime
 from flask_caching import Cache
 from backend.config import config_settings
 
-caching = Cache()
+caching = Cache(config={'CACHE_TYPE': 'SimpleCache'})
 
 class AccountRegisterAPI(Resource):  
     def post(self):
@@ -58,7 +58,8 @@ class AccountLoginAPI(Resource):
             return {"msg": "Username and password are required"}, 400
 
         user = Account.query.filter_by(username=username).first()
-        print(f"User = {user}")  # Debugging line to check user retrieval
+        print(f"Comparing request pwd: {repr(pwd)}")
+        print(f"With database pwd:   {repr(user.pwd)}")
         if user and user.pwd == pwd:
             tkn = create_access_token(identity=str(user.id),additional_claims={"name": user.username,"role": user.role})
             print(f"User {user.username} logged in successfully. on {datetime.now()}")
@@ -178,13 +179,19 @@ class SubManagementAPI(Resource):
         claims = get_jwt()
         if claims.get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
-
+        # Try retrieving from cache
+        cached_subjects = caching.get("subjects_admin")
+        if cached_subjects:
+            return cached_subjects, 200
         subjects = Courses.query.all()
-        return [{
+        data = [{
             'id': sub.id,
             'name': sub.s_name,
             'desc': sub.remarks
-        } for sub in subjects], 200
+        } for sub in subjects]
+
+        caching.set("subjects_admin", data, timeout=60)
+        return data, 200
 
     @jwt_required()
     def post(self):
@@ -202,7 +209,7 @@ class SubManagementAPI(Resource):
         new_sub = Courses(s_name=name, remarks=desc)
         db.session.add(new_sub)
         db.session.commit()
-        caching.delete_memoized(SubManagementAPI.get)
+        caching.delete("subjects_admin")
         return {"msg": f"Subject '{name}' added successfully!"}, 201
 
     
@@ -227,7 +234,7 @@ class SubManagementAPI(Resource):
             subject.remarks = desc      
         db.session.commit()
         #Invalidate cache after DB update
-        caching.delete_memoized(SubManagementAPI.get)
+        caching.delete("subjects_admin")
         return {"msg": f"Your subject '{subject.s_name}' updated successfully!"}, 200
     
     @jwt_required()
@@ -241,14 +248,14 @@ class SubManagementAPI(Resource):
         if subject is not None:
             db.session.delete(subject)
             db.session.commit()
-            caching.delete_memoized(SubManagementAPI.get)
+            caching.delete("subjects_admin") 
             return {"msg": f"Subject '{subject.s_name}' successfully removed!"}, 200
         else:
             return {"msg": "Subject not found!"}, 404
 
 class ModuleMngAPI(Resource):
     @jwt_required()
-    @caching.cached(timeout=60)
+    # @caching.cached(timeout=60)
     def get(self, sub_id):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
@@ -311,20 +318,19 @@ class ModuleMngAPI(Resource):
 class AssessmentMngAPI(Resource):
     @jwt_required()
     @caching.cached(timeout=60)
-    def get(self, chap_id):
+    def get(self, sub_id,chap_id):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
         exams = Assessment.query.filter_by(chapter_id=chap_id).all()
         return [{
             'id': exam.id,
             'name': exam.q_name,
-            'date': exam.date_of_quiz,
-            'time': exam.time_duration,
-            'remarks': exam.remarks
-        } for exam in exams], 200
+            'date': exam.date_of_quiz.strftime('%Y-%m-%d'),
+            'time_duration': exam.time_duration.strftime('%H:%M:%S'),
+            'remarks': exam.remarks if exam.remarks else ''} for exam in exams], 200
     
     @jwt_required()
-    def post(self, chap_id):
+    def post(self, sub_id, chap_id):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
         info = request.get_json()
@@ -332,17 +338,24 @@ class AssessmentMngAPI(Resource):
         date = info.get('date')
         time = info.get('time')
         remarks = info.get('remarks', '')
-        if not name or not date or not time:
+        if not all([name, date, time]):
             return {"msg": "Please fill all required fields!"}, 400
         if Assessment.query.filter_by(q_name=name, chapter_id=chap_id).first():
             return {"msg": "Quiz with that name already exists"}, 400
-        new_exam = Assessment(q_name=name, chapter_id=chap_id, date_of_quiz=datetime.strptime(date, '%Y-%m-%d').date(), time_duration=datetime.strptime(time, '%H:%M:%S').time(), remarks=remarks)
+        
+        new_exam = Assessment(
+            q_name=name,
+            chapter_id=chap_id,
+            date_of_quiz=datetime.strptime(date, '%Y-%m-%d').date(),
+            time_duration=datetime.strptime(time, '%H:%M:%S').time(),
+            remarks=remarks
+        )
         db.session.add(new_exam)
         db.session.commit()
         return {"msg": f"Quiz '{name}' added successfully!"}, 201
     
     @jwt_required()
-    def put(self, chap_id, exam_id):
+    def put(self, sub_id, chap_id, exam_id):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
         info = request.get_json()
@@ -369,7 +382,7 @@ class AssessmentMngAPI(Resource):
         return {"msg": f"Your quiz '{exam.q_name}' updated successfully!"}, 200
     
     @jwt_required()
-    def delete(self, chap_id, exam_id):
+    def delete(self, sub_id, chap_id, exam_id):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
         exam = Assessment.query.get(exam_id) 
@@ -382,14 +395,15 @@ class AssessmentMngAPI(Resource):
         
 class QueMngAPI(Resource):
     @jwt_required()
-    @caching.cached(timeout=60)
-    def get(self, exam_id):
+    # @caching.cached(timeout=60)
+    def get(self, exam_id, chap_id, sub_id):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
-        if not Assessment.query.get(exam_id):
+        quiz = Assessment.query.filter_by(id=exam_id, chapter_id=chap_id).first()
+        if not quiz:
             return {"msg": "Quiz not found!"}, 404
         questions = AssessmentProblem.query.filter_by(quiz_id=exam_id).all()
-        return jsonify([{
+        return [{
             'id': q.id,
             'que_no': q.que_no,
             'statement': q.statement,
@@ -398,15 +412,17 @@ class QueMngAPI(Resource):
             'opt3': q.opt3,
             'opt4': q.opt4,
             'cor_opt': q.cor_opt
-        } for q in questions]), 200
+        } for q in questions], 200
     
     @jwt_required()
-    def post(self, exam_id):
+    def post(self, sub_id, chap_id, exam_id):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403   
         if not Assessment.query.get(exam_id):
             return {"msg": "Quiz not found!"}, 404 
         info = request.get_json()
+        if not info:
+            return {"msg": "Missing JSON payload"}, 400
         que_no = info.get('que_no')
         statement = info.get('statement')
         opt1 = info.get('opt1')
@@ -416,17 +432,24 @@ class QueMngAPI(Resource):
         cor_opt = info.get('cor_opt')
         if not all([que_no, statement, opt1, opt2, opt3, opt4, cor_opt]):
             return {"msg": "Please fill all required fields!"}, 400
+        if cor_opt not in [1, 2, 3, 4]:
+            return {"msg": "Correct option must be between 1 and 4"}, 400
         if AssessmentProblem.query.filter_by(quiz_id=exam_id, que_no=que_no).first():
             return {"msg": "Question with that number already exists"}, 400
         if AssessmentProblem.query.filter_by(quiz_id=exam_id, statement=statement).first():
             return {"msg": "Question with that statement already exists"}, 400
-        new_que = AssessmentProblem(que_no=que_no, quiz_id=exam_id, statement=statement, opt1=opt1, opt2=opt2, opt3=opt3, opt4=opt4, cor_opt=cor_opt)
-        db.session.add(new_que)
-        db.session.commit()
-        return {"msg": f"Your question added successfully!"}, 201
+        try :
+            new_que = AssessmentProblem(que_no=que_no, quiz_id=exam_id, statement=statement, opt1=opt1, opt2=opt2, opt3=opt3, opt4=opt4, cor_opt=cor_opt)
+            db.session.add(new_que)
+            db.session.commit()
+            return {"msg": f"Your question added successfully!"}, 201
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error adding question: {e}")
+            return {"msg": "An error occurred while adding the question"}, 500
     
     @jwt_required()
-    def put(self, exam_id, que_id):
+    def put(self, sub_id, chap_id, exam_id, que_id):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
         info = request.get_json()
@@ -468,43 +491,73 @@ class QueMngAPI(Resource):
         return {"msg": f"Your question updated successfully!"}, 200
     
     @jwt_required()
-    def delete(self, exam_id, que_id):
+    def delete(self, sub_id, chap_id, exam_id, que_id):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
+        quiz = Assessment.query.filter_by(id=exam_id, chapter_id=chap_id).first()
+        if not quiz:
+            return {"msg": "Quiz not found!"}, 404
         question = AssessmentProblem.query.get(que_id)
         if question is None:
             return {"msg": "Question not found!"}, 404
         if question.quiz_id != exam_id:
             return {"msg": "Question does not belong to this quiz"}, 400
-        db.session.delete(question)
-        db.session.commit()
-        return {"msg": f"Question {question.que_no} successfully deleted!"}, 200
+        try:
+            question_no = question.que_no
+            db.session.delete(question)
+            db.session.commit()
+            return {"msg": f"Question {question_no} successfully deleted!"}, 200
+        except Exception as e:
+            db.session.rollback()
+            return {"msg": "Failed to delete question"}, 500
         
 class UserMngAPI(Resource):
     @jwt_required()
-    @caching.cached(timeout=60)
+    @caching.cached(timeout=60) 
     def get(self):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
-        users = Account.query.all()
-        return jsonify([{
-            'id': user.id,
-            'username': user.username,
-            'active': user.active,
-            'role': user.role
-        } for user in users]), 200
+        
+        users = Account.query.filter(Account.role != 'admin').all()
+        users_data = []
+        for user in users:
+            total_score = sum(score.score for score in user.scores)
+            total_max_marks = sum(score.max_marks for score in user.scores)
+            
+            accuracy = 0
+            if total_max_marks > 0:
+                accuracy = round((total_score / total_max_marks) * 100, 2)
+
+            users_data.append({
+                'id': user.id,
+                'username': user.username,
+                'f_name': user.f_name,
+                'l_name': user.l_name,
+                'email': user.email,
+                'active': user.active,
+                'role': user.role,
+                'quizzes_taken': len(user.scores),
+                'accuracy': accuracy
+            })
+            
+        return jsonify(users_data)
 
     @jwt_required()
     def post(self, user_id):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
+        
         target_user = Account.query.get(user_id)
         if not target_user:
             return {"msg": "User not found!"}, 404
-        if target_user.id == user['user']['id']:
-            return {"msg": "You cannot modify your own account status"}, 403
+        current_user_id = get_jwt().get('sub') 
+        if str(target_user.id) == str(current_user_id):
+             return {"msg": "You cannot modify your own account status."}, 403
+
         target_user.active = not target_user.active
         db.session.commit()
+        caching.delete_memoized(self.get)
+
         status = "activated" if target_user.active else "deactivated"
-        return {"msg": f"User {target_user.username} has been {status} successfully!"}, 200
+        return {"msg": f"User '{target_user.username}' has been {status} successfully!"}, 200
 

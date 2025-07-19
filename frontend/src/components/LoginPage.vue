@@ -29,9 +29,11 @@
   </div> 
 </template>  
 
-<script> 
+<script>
+import { useAuthStore } from '@/stores/authStore'; 
+
 export default {
-  data(){
+  data() {
     return {
       username: '',
       password: '',
@@ -40,45 +42,27 @@ export default {
   },
   methods: {
     async login() {
-      this.msg = null;
-      const payload = {
-        username: this.username,
-        password: this.password,
-      };
+      this.msg = null; 
+      const authStore = useAuthStore(); 
+
       try {
-        const response = await fetch('/api/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
+        const success = await authStore.login({
+          username: this.username,
+          password: this.password,
         });
 
-        let data;
-        try {
-          data = await response.json();
-        } catch (e) {
-          this.msg = 'Server did not return valid JSON.';
-          return;
-        }
-
-        if (response.ok) {
-          localStorage.setItem('token', data.access_token);
-          localStorage.setItem('user_info', JSON.stringify(data.user));
-          localStorage.setItem('role', data.user.role);
-          if(data.user.role === 'admin'){
-            alert('Admin login successful');
+        if (success) {
+          if (authStore.role === 'admin') {
             this.$router.push('/admin/dashboard');
           } else {
-            alert(`${data.user.name} login successful`);
             this.$router.push('/user/dashboard');
           }
         } else {
-          this.msg = data.msg || 'Ohh no! Login failed';
+          this.msg = 'Login failed. Please check your credentials.';
         }
       } catch (error) {
-        console.error(error);
-        this.msg = 'Something went wrong';
+        console.error('Login component error:', error);
+        this.msg = 'An unexpected error occurred. Please try again.';
       }
     },
   },
