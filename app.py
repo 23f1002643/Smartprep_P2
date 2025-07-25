@@ -10,14 +10,15 @@ from backend.worker import *
 from backend.api  import (
     AccountRegisterAPI,
     AccountLoginAPI,
+    AdminUserExportAPI,
     AccountLogoutAPI,
-    AccountDashboardAPI,
     SubManagementAPI,
     ModuleMngAPI,
     QueMngAPI,
     AssessmentMngAPI,
     UserMngAPI,
-    caching, jwt_blocklist
+    UserDashAPI,
+    caching, jwt_blocklist, ChapAPI_User, QuizAPI_User, QuizStartAPI, ScoreHistoryAPI, AdminStatisticsAPI, UserStatisticsAPI, TaskStatusAPI, SearchAPI
 )
 
 def init_app(): # Function to initialize Flask app
@@ -77,9 +78,21 @@ my_api.add_resource(AssessmentMngAPI, '/api/admin/sub/<int:sub_id>/chap/<int:cha
 my_api.add_resource(AccountRegisterAPI, '/api/register')
 my_api.add_resource(AccountLoginAPI, '/api/login')
 my_api.add_resource(AccountLogoutAPI, '/api/logout') 
-my_api.add_resource(AccountDashboardAPI, '/api/dashboard')
+# my_api.add_resource(AccountDashboardAPI, '/api/dashboard')
 my_api.add_resource(SubManagementAPI, '/api/sub', '/api/sub/<int:sub_id>')
 my_api.add_resource(UserMngAPI, '/api/admin/user', '/api/admin/user/<int:user_id>')
+my_api.add_resource(AdminStatisticsAPI, '/api/admin/statistics')
+my_api.add_resource(AdminUserExportAPI, '/api/admin/export-user-data')
+my_api.add_resource(TaskStatusAPI, '/api/admin/export-status/<string:task_id>')
+my_api.add_resource(SearchAPI, '/api/search')
+
+# <------------------------------------------------User APIs---------------------------------------------------------------->
+my_api.add_resource(UserDashAPI, '/api/user-dashboard')
+my_api.add_resource(ChapAPI_User, '/api/user/sub/<int:sub_id>/chap')
+my_api.add_resource(QuizAPI_User, '/api/user/chap/<int:chap_id>')
+my_api.add_resource(QuizStartAPI, '/api/user/quiz/<int:quiz_id>/start', '/api/user/quiz/<int:quiz_id>/submit')
+my_api.add_resource(ScoreHistoryAPI, '/api/user/<int:user_id>/score-history')
+my_api.add_resource(UserStatisticsAPI, '/api/user/statistics')
 
 
 jwt_blocklist = config_settings['JWT_BLOCKLIST']
@@ -89,20 +102,20 @@ def check_if_token_revoked(jwt_header, jwt_payload):
     jti = jwt_payload['jti']
     return jti in jwt_blocklist
 
-# @jwt.expired_token_loader
-# def expired_token_callback(jwt_header, jwt_payload):
-#     print("Token expired!")
-#     return {"msg": "Token has expired"}, 401
+@jwt.expired_token_loader
+def expired_token_callback(jwt_header, jwt_payload):
+    print("Token expired!")
+    return {"msg": "Token has expired"}, 401
 
-# @jwt.invalid_token_loader
-# def invalid_token_callback(error):
-#     print(f"Invalid token: {error}")
-#     return {"msg": "Invalid token"}, 422
+@jwt.invalid_token_loader
+def invalid_token_callback(error):
+    print(f"Invalid token: {error}")
+    return {"msg": "Invalid token"}, 422
 
-# @jwt.unauthorized_loader
-# def missing_token_callback(error):
-#     print(f"Missing token: {error}")
-#     return {"msg": "Authorization token is required"}, 401
+@jwt.unauthorized_loader
+def missing_token_callback(error):
+    print(f"Missing token: {error}")
+    return {"msg": "Authorization token is required"}, 401
 
 if __name__ == '__main__':   
     ns.run(debug=True)

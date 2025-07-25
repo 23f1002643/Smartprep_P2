@@ -1,5 +1,19 @@
 <template>
   <div class="container mt-5">
+    <!-- Status Alert for Export -->
+    <div v-if="exportStatus" class="alert" :class="exportAlertClass" role="alert">
+      <strong>{{ exportStatus }}</strong>
+      <div v-if="exporting" class="progress mt-2" style="height: 10px;">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" :style="{ width: exportProgress + '%' }" aria-valuenow="exportProgress" aria-valuemin="0" aria-valuemax="100"></div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end">
+      <button @click="exportUserData" class="btn btn-danger mb-3" :disabled="exporting">
+        <span v-if="exporting" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        {{ exporting ? 'Exporting...' : 'Export Users Data' }}
+      </button>
+    </div>
     <div class="card shadow-sm">
       <div class="card-header bg-dark text-white">
         <h4 class="mb-0">User Management</h4>
@@ -63,13 +77,18 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue'; 
 
 export default {
   name: 'UserManagement',
   setup() {
     const users = ref([]);
     const isLoading = ref(true);
+    const exporting = ref(false);
+    const exportStatus = ref('');
+    const exportProgress = ref(0);
+    const exportAlertClass = ref('alert-info');
+    let pollingInterval = null;
 
     const loadUsers = async () => {
       isLoading.value = true;
@@ -118,6 +137,71 @@ export default {
         console.error('Toggle user status failed:', err);
       }
     };
+    const exportUserData = async () => {
+      if (exporting.value) return;
+
+      exporting.value = true;
+      exportStatus.value = 'Initializing export...';
+      exportAlertClass.value = 'alert-info';
+      exportProgress.value = 0;
+
+      try {
+        const res = await fetch('/api/admin/export-user-data', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to start the export process.');
+        }
+
+        const data = await res.json();
+        const taskId = data.task_id;
+        exportStatus.value = 'Export process started. Please wait...';
+        
+        // Start polling for the task status
+        pollingInterval = setInterval(() => {
+          pollTaskStatus(taskId);
+        }, 3000); // Poll every 3 seconds
+
+      } catch (err) {
+        exporting.value = false;
+        exportStatus.value = `Error: ${err.message}`;
+        exportAlertClass.value = 'alert-danger';
+      }
+    };
+    const pollTaskStatus = async (taskId) => {
+      try {
+        const res = await fetch(`/api/admin/export-status/${taskId}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        const data = await res.json();
+
+        if (data.state === 'PROGRESS') {
+          exportStatus.value = data.info.status;
+          exportProgress.value = data.info.current;
+        } else if (data.state === 'SUCCESS') {
+          clearInterval(pollingInterval);
+          exporting.value = false;
+          exportStatus.value = 'Export complete! The CSV file has been sent to your email.';
+          exportAlertClass.value = 'alert-success';
+          exportProgress.value = 100;
+        } else if (data.state === 'FAILURE') {
+          clearInterval(pollingInterval);
+          exporting.value = false;
+          exportStatus.value = `Export failed: ${data.info.message || 'An unknown error occurred.'}`;
+          exportAlertClass.value = 'alert-danger';
+        }
+      } catch (err) {
+        clearInterval(pollingInterval);
+        exporting.value = false;
+        exportStatus.value = 'Error checking task status.';
+        exportAlertClass.value = 'alert-danger';
+      }
+    };
 
     const getAccuracyBadge = (accuracy) => {
       if (accuracy >= 90) return 'bg-success text-white';
@@ -127,8 +211,23 @@ export default {
     };
 
     onMounted(loadUsers);
+    onBeforeUnmount(() => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    });
 
-    return { users, isLoading, toggleUserStatus, getAccuracyBadge };
+    return { 
+      users, 
+      isLoading, 
+      toggleUserStatus, 
+      getAccuracyBadge,
+      exporting,
+      exportStatus,
+      exportProgress,
+      exportAlertClass,
+      exportUserData,
+    };
   },
 };
 </script>

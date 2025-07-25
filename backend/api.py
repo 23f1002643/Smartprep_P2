@@ -1,11 +1,12 @@
-from flask_restful import Resource
+from flask_restful import Resource, reqparse
 from flask_jwt_extended import get_jwt, create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request
 from flask import request, jsonify, current_app as ns, session
 from backend.models import db, Account, Courses, CourseModule, Assessment, AssessmentProblem, ExamPerformance
 from datetime import datetime 
 from flask_caching import Cache
 from backend.config import config_settings
-
+from sqlalchemy import func
+from backend.tasks import *
 caching = Cache(config={'CACHE_TYPE': 'SimpleCache'})
 
 class AccountRegisterAPI(Resource):  
@@ -84,93 +85,93 @@ class AccountLogoutAPI(Resource):
         # session.clear()
         print(f"Token {jti} added to blocklist")
         return {"msg": "You have been Logged out successfully!"}, 200
-class AccountDashboardAPI(Resource):
-    @jwt_required()
-    @caching.cached(timeout=60)
-    def get(self):
-        claims = get_jwt()
-        today = datetime.now().date()
-        assessments = Assessment.query.filter(Assessment.date_of_quiz >= today).all()
-        subjects = Courses.query.all()
-        modules = CourseModule.query.all()
-        quts = AssessmentProblem.query.all()
-        users = Account.query.all()
-        performances = ExamPerformance.query.all()
-        if claims.get('role') == 'admin':
-            return {
-                'quizzes': [
-                    {
-                        'id': a.id,
-                        'name': a.q_name,
-                        'date': a.date_of_quiz.strftime('%Y-%m-%d'), 
-                        'time': a.time_duration.strftime('%H:%M:%S'),  
-                        'remarks': a.remarks
-                    } for a in assessments
-                ],
-                'subjects': [{'id': s.id, 'name': s.s_name} for s in subjects],
-                'modules': [{'id': m.id, 'name': m.name, 'subject_id': m.subject_id} for m in modules],
-                'quts': [
-                    {
-                        'id': q.id,
-                        'que_no': q.que_no,
-                        'statement': q.statement,
-                        'opt1': q.opt1,
-                        'opt2': q.opt2,
-                        'opt3': q.opt3,
-                        'opt4': q.opt4,
-                        'cor_opt': q.cor_opt
-                    } for q in quts
-                ],
-                'users': [{'id': u.id, 'username': u.username, 'role': u.role} for u in users],
-                'scores': [
-                    {
-                        'id': p.id,
-                        'user_id': p.user_id,
-                        'quiz_id': p.quiz_id,
-                        'score': p.score,
-                        'time_of_attempt': p.time_of_attempt.strftime('%Y-%m-%d %H:%M:%S')  
-                    } for p in performances
-                ]
-            }, 200
-        else:
-            user_id = get_jwt_identity()
-            user = Account.query.get(user_id)
-            performances = ExamPerformance.query.filter_by(user_id=user.id).all()   
+# class AccountDashboardAPI(Resource):
+#     @jwt_required()
+#     @caching.cached(timeout=60)
+#     def get(self):
+#         claims = get_jwt()
+#         today = datetime.now().date()
+#         assessments = Assessment.query.filter(Assessment.date_of_quiz >= today).all()
+#         subjects = Courses.query.all()
+#         modules = CourseModule.query.all()
+#         quts = AssessmentProblem.query.all()
+#         users = Account.query.all()
+#         performances = ExamPerformance.query.all()
+#         if claims.get('role') == 'admin':
+#             return {
+#                 'quizzes': [
+#                     {
+#                         'id': a.id,
+#                         'name': a.q_name,
+#                         'date': a.date_of_quiz.strftime('%Y-%m-%d'), 
+#                         'time': a.time_duration.strftime('%H:%M:%S'),  
+#                         'remarks': a.remarks
+#                     } for a in assessments
+#                 ],
+#                 'subjects': [{'id': s.id, 'name': s.s_name} for s in subjects],
+#                 'modules': [{'id': m.id, 'name': m.name, 'subject_id': m.subject_id} for m in modules],
+#                 'quts': [
+#                     {
+#                         'id': q.id,
+#                         'que_no': q.que_no,
+#                         'statement': q.statement,
+#                         'opt1': q.opt1,
+#                         'opt2': q.opt2,
+#                         'opt3': q.opt3,
+#                         'opt4': q.opt4,
+#                         'cor_opt': q.cor_opt
+#                     } for q in quts
+#                 ],
+#                 'users': [{'id': u.id, 'username': u.username, 'role': u.role} for u in users],
+#                 'scores': [
+#                     {
+#                         'id': p.id,
+#                         'user_id': p.user_id,
+#                         'quiz_id': p.quiz_id,
+#                         'score': p.score,
+#                         'time_of_attempt': p.time_of_attempt.strftime('%Y-%m-%d %H:%M:%S')  
+#                     } for p in performances
+#                 ]
+#             }, 200
+#         else:
+#             user_id = get_jwt_identity()
+#             user = Account.query.get(user_id)
+#             performances = ExamPerformance.query.filter_by(user_id=user.id).all()   
         
-            return {
-                'subjects': [{'id': s.id, 'name': s.s_name} for s in subjects],
-                'modules': [{'id': m.id, 'name': m.name, 'subject_id': m.subject_id} for m in modules],
-                'quizzes': [
-                    {
-                        'id': a.id,
-                        'name': a.q_name,
-                        'date': a.date_of_quiz.strftime('%Y-%m-%d'), 
-                        'time': a.time_duration.strftime('%H:%M:%S'),  
-                        'remarks': a.remarks
-                    } for a in assessments
-                ],
-                'quts': [
-                    {
-                        'id': q.id,
-                        'que_no': q.que_no,
-                        'statement': q.statement,
-                        'opt1': q.opt1,
-                        'opt2': q.opt2,
-                        'opt3': q.opt3,
-                        'opt4': q.opt4,
-                        'cor_opt': q.cor_opt
-                    } for q in quts
-                ],
-                'scores': [
-                    {
-                        'id': p.id,
-                        'user_id': p.user_id,
-                        'quiz_id': p.quiz_id,
-                        'score': p.score,
-                        'time_of_attempt': p.time_of_attempt.strftime('%Y-%m-%d %H:%M:%S')  
-                    } for p in performances
-                ]
-            }, 200
+#             return {
+#                 'subjects': [{'id': s.id, 'name': s.s_name} for s in subjects],
+#                 'modules': [{'id': m.id, 'name': m.name, 'subject_id': m.subject_id} for m in modules],
+#                 'quizzes': [
+#                     {
+#                         'id': a.id,
+#                         'name': a.q_name,
+#                         'date': a.date_of_quiz.strftime('%Y-%m-%d'), 
+#                         'time': a.time_duration.strftime('%H:%M:%S'),  
+#                         'remarks': a.remarks
+#                     } for a in assessments
+#                 ],
+#                 'quts': [
+#                     {
+#                         'id': q.id,
+#                         'que_no': q.que_no,
+#                         'statement': q.statement,
+#                         'opt1': q.opt1,
+#                         'opt2': q.opt2,
+#                         'opt3': q.opt3,
+#                         'opt4': q.opt4,
+#                         'cor_opt': q.cor_opt
+#                     } for q in quts
+#                 ],
+#                 'scores': [
+#                     {
+#                         'id': p.id,
+#                         'user_id': p.user_id,
+#                         'quiz_id': p.quiz_id,
+#                         'score': p.score,
+#                         'time_of_attempt': p.time_of_attempt.strftime('%Y-%m-%d %H:%M:%S')  
+#                     } for p in performances
+#                 ]
+#             }, 200
 class SubManagementAPI(Resource):
     @jwt_required()
     # @caching.cached(timeout=60)
@@ -513,7 +514,7 @@ class QueMngAPI(Resource):
         
 class UserMngAPI(Resource):
     @jwt_required()
-    @caching.cached(timeout=60) 
+    # @caching.cached(timeout=60) 
     def get(self):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
@@ -561,3 +562,325 @@ class UserMngAPI(Resource):
         status = "activated" if target_user.active else "deactivated"
         return {"msg": f"User '{target_user.username}' has been {status} successfully!"}, 200
 
+class UserDashAPI(Resource):
+    @jwt_required()
+    def get(self):
+        user_id = get_jwt_identity()
+        user = Account.query.get(user_id)
+        if not user:
+            return {"msg": "User not found!"}, 404
+        if user.role != 'user':
+            return {"msg": "Access denied! Only Users can access"}, 403
+        subjects = Courses.query.all()
+        quizzes = Assessment.query.filter(Assessment.date_of_quiz > datetime.now().date()).all()
+        return {
+            'subjects': [{'id': s.id, 'name': s.s_name} for s in subjects],
+            'quizzes': [
+                {
+                    'id': q.id,
+                    'name': q.q_name,
+                    'subject': q.chapter.course.s_name,
+                    'chapter': q.chapter.name,
+                    'date_of_quiz': q.date_of_quiz.strftime('%Y-%m-%d'),
+                    'time_duration': str(q.time_duration)
+                } for q in quizzes
+            ]
+        }
+
+class ChapAPI_User(Resource):
+    @jwt_required()
+    def get(self, sub_id):
+        if get_jwt().get('role') != 'user':
+            return {"msg": "Access denied! Only Users can access"}, 403
+        sub = Courses.query.get(sub_id)
+        if not sub:
+            return {"msg": "Subject not found"}, 404
+        data = {
+            "s_name": sub.s_name,
+            "chapters": [
+                {
+                    "id": chap.id,
+                    "name": chap.name,
+                    "course": {"s_name": sub.s_name},
+                    "quizzes": [{"id": quiz.id} for quiz in chap.quizzes]
+                } for chap in sub.chapters
+            ]
+        }
+        return data, 200
+
+class QuizAPI_User(Resource):
+    @jwt_required()
+    def get(self, chap_id): 
+        if get_jwt().get('role') != 'user':
+            return {"msg": "Access denied! Only Users can access"}, 403
+        chap = CourseModule.query.get(chap_id)
+        if not chap:
+            return {"msg": "Chapter not found"}, 404
+        data = {
+            "quizzes": [
+                {
+                    "id": quiz.id,
+                    "chapter": {
+                        "id": chap.id,
+                        "name": chap.name,
+                        "course": {
+                            "s_name": chap.course.s_name
+                        }
+                    },
+                    "q_name": quiz.q_name,
+                    "questions": len(quiz.questions),
+                    "time_duration": str(quiz.time_duration), 
+                    "date_of_quiz": quiz.date_of_quiz.strftime('%Y-%m-%d') 
+                }
+                for quiz in chap.quizzes
+            ]
+        }
+        return data, 200
+
+class QuizStartAPI(Resource): 
+    @jwt_required()
+    def get(self, quiz_id):
+        if get_jwt().get('role') != 'user':
+            return {"msg": "Access denied! Only users can submit quizzes."}, 403
+        quiz = Assessment.query.get(quiz_id)
+        if not quiz:
+            return {"msg": "Quiz not found"}, 404
+        
+        questions = AssessmentProblem.query.filter_by(quiz_id=quiz_id).all()
+        return {
+            "quiz": {
+                "id": quiz.id,
+                "q_name": quiz.q_name,
+                "chapter": {
+                    "id": quiz.chapter.id,
+                    "name": quiz.chapter.name,
+                    "course": {
+                        "s_name": quiz.chapter.course.s_name
+                    }
+                },
+                "time_duration": str(quiz.time_duration),
+                "date_of_quiz": quiz.date_of_quiz.strftime('%Y-%m-%d')
+            },
+            "questions": [
+                {
+                    "id": q.id,
+                    "que_no": q.que_no,
+                    "statement": q.statement,
+                    "opt1": q.opt1,
+                    "opt2": q.opt2,
+                    "opt3": q.opt3,
+                    "opt4": q.opt4,
+                    "cor_opt": q.cor_opt
+                } for q in questions
+            ]
+        }, 200
+    @jwt_required()
+    def post(self, quiz_id):
+        user_id = get_jwt_identity()
+        if get_jwt().get('role') != 'user':
+            return {"msg": "Access denied! Only users can submit quizzes."}, 403
+        quiz = Assessment.query.get(quiz_id)
+        if not quiz:
+            return {"msg": "Quiz not found"}, 404
+        submitted_data = request.get_json()
+        if not submitted_data or 'answers' not in submitted_data:
+            return {"msg": "Missing answers in request payload."}, 400
+        
+        user_answers = submitted_data.get('answers')
+        score = 0
+        total_questions = len(quiz.questions)
+        for question in quiz.questions:
+            question_id_str = str(question.id)
+            user_choice = user_answers.get(question_id_str)
+            correct_answer_str = str(question.cor_opt)
+            if user_choice == correct_answer_str:
+                score += 1
+        new_performance_record = ExamPerformance(
+            score=score,
+            quiz_id=quiz_id,
+            user_id=user_id,
+            max_marks=total_questions
+        )
+        db.session.add(new_performance_record)
+        db.session.commit()
+        return {
+            "msg": "Quiz submitted successfully!",
+            "score": score,
+            "max_marks": total_questions
+        }, 200
+
+class ScoreHistoryAPI(Resource):
+    @jwt_required()
+    def get(self, user_id):
+        if get_jwt().get('role') != 'user':
+            return {"msg": "Access denied! Only users can view their score history."}, 403
+        user = Account.query.get(user_id)
+        if not user:
+            return {"msg": "User not found"}, 404
+        
+        scores = ExamPerformance.query.filter_by(user_id=user.id).order_by(ExamPerformance.time_of_attempt.desc()).all()
+        if not scores:
+            return {"msg": "No scores found"}, 404
+        
+        return [{
+                'subject': score.quiz.chapter.course.s_name,
+                'chapter': score.quiz.chapter.name,
+                'quiz_name': score.quiz.q_name,
+                'score': score.score,
+                'date_of_attempt': score.time_of_attempt.strftime('%Y-%m-%d %H:%M:%S'),
+                'duration': str(score.quiz.time_duration)
+            } for score in scores], 200
+
+class AdminStatisticsAPI(Resource):
+    @jwt_required()
+    def get(self):
+        if get_jwt().get('role') != 'admin':
+            return {"msg": "Admins only!"}, 403
+
+        # Quiz Attempts by Subject (for Pie Chart)
+        attempts_by_subject_query = db.session.query(
+            Courses.s_name,
+            func.count(ExamPerformance.id)
+        ).join(CourseModule, Courses.id == CourseModule.subject_id)\
+         .join(Assessment, CourseModule.id == Assessment.chapter_id)\
+         .join(ExamPerformance, Assessment.id == ExamPerformance.quiz_id)\
+         .group_by(Courses.s_name).all()
+
+        attempts_by_subject = {subject: count for subject, count in attempts_by_subject_query}
+
+        # Average Score by Quiz (for Bar Chart)
+        avg_score_by_quiz_query = db.session.query(
+            Assessment.q_name,
+            func.avg(ExamPerformance.score * 100.0 / ExamPerformance.max_marks)
+        ).join(ExamPerformance, Assessment.id == ExamPerformance.quiz_id)\
+         .group_by(Assessment.q_name).all()
+
+        avg_score_by_quiz = {name: round(avg, 2) for name, avg in avg_score_by_quiz_query}
+
+        # Total Attempts per Quiz (for Bar Chart)
+        attempts_per_quiz_query = db.session.query(
+            Assessment.q_name,
+            func.count(ExamPerformance.id)
+        ).join(ExamPerformance, Assessment.id == ExamPerformance.quiz_id)\
+         .group_by(Assessment.q_name).all()
+
+        attempts_per_quiz = {name: count for name, count in attempts_per_quiz_query}
+
+        # Average Score by Subject (for Bar Chart)
+        avg_score_by_subject_query = db.session.query(
+            Courses.s_name,
+            func.avg(ExamPerformance.score * 100.0 / ExamPerformance.max_marks)
+        ).join(CourseModule, Courses.id == CourseModule.subject_id)\
+         .join(Assessment, CourseModule.id == Assessment.chapter_id)\
+         .join(ExamPerformance, Assessment.id == ExamPerformance.quiz_id)\
+         .group_by(Courses.s_name).all()
+        
+        avg_score_by_subject = {subject: round(avg, 2) for subject, avg in avg_score_by_subject_query}
+
+        return {
+            "attempts_by_subject": attempts_by_subject,
+            "avg_score_by_quiz": avg_score_by_quiz,
+            "attempts_per_quiz": attempts_per_quiz,
+            "avg_score_by_subject": avg_score_by_subject
+        }
+
+class UserStatisticsAPI(Resource): 
+    @jwt_required()
+    def get(self):
+        user_id = get_jwt_identity()
+        user = db.session.get(Account, user_id)
+        if not user:
+            return {"msg": "User not found"}, 404
+        # --- Chart 3 Data: Score in Each Attempted Quiz ---
+        # Filter out scores that are None OR zero
+        my_quiz_scores = []
+        for score in user.scores:
+            if score.score is not None and score.score > 0: 
+                total_marks = len(score.quiz.questions) 
+                percentage_score = 0
+                if total_marks > 0:
+                    percentage_score = round((score.score / total_marks) * 100, 2)
+                
+                my_quiz_scores.append({"name": score.quiz.q_name, "score": percentage_score})
+
+        subject_scores = {}
+        for score in user.scores:
+            if score.score is None:
+                continue
+            total_marks = len(score.quiz.questions)
+            percentage_score = 0
+            if total_marks > 0:
+                percentage_score = round((score.score / total_marks) * 100, 2) 
+
+            subject = score.quiz.chapter.course.s_name
+            if subject not in subject_scores:
+                subject_scores[subject] = []
+            
+            subject_scores[subject].append(percentage_score) 
+        my_avg_score_by_subject = {
+            subject: round(sum(scores) / len(scores), 2)
+            for subject, scores in subject_scores.items() if scores}
+        my_score_comparison = {
+            subject: {
+                "average": round(sum(scores) / len(scores), 2),
+                "highest": max(scores)
+            }
+            for subject, scores in subject_scores.items() if scores
+        }
+        my_attempt_distribution = {
+            subject: len(scores)
+            for subject, scores in subject_scores.items()
+        }
+        return {
+            "my_quiz_scores": my_quiz_scores,
+            "my_avg_score_by_subject": my_avg_score_by_subject,
+            "my_score_comparison": my_score_comparison,
+            "my_attempt_distribution": my_attempt_distribution
+        }
+    
+class AdminUserExportAPI(Resource):
+    @jwt_required()
+    def post(self):
+        admin_id = get_jwt_identity()
+        if get_jwt().get('role') != 'admin':
+            return {"msg": "Access denied! Only admin can access"}, 403
+        task = export_user_data_by_admin.delay(admin_id)
+        return {"message": "User export process has been started.", "task_id": task.id}, 202
+
+class TaskStatusAPI(Resource):
+    @jwt_required()
+    def get(self, task_id):
+        task = export_user_data_by_admin.AsyncResult(task_id)  
+        response = {
+            'state': task.state,
+            'info': task.info, 
+        }
+        return response, 200
+    
+class SearchAPI(Resource):
+    @jwt_required()
+    def get(self):
+        # Use reqparse to safely get the search query from URL parameters 
+        parser = reqparse.RequestParser()
+        parser.add_argument('q', type=str, required=True, help='Search query cannot be blank', location='args')
+        args = parser.parse_args()
+        search_query = args['q']
+        user_role = get_jwt().get('role')
+        results = {
+            "users": [],
+            "subjects": [],
+            "chapters": [],
+            "quizzes": []
+        }
+        subjects = Courses.query.filter(Courses.s_name.ilike(f'%{search_query}%')).all()
+        results["subjects"] = [{'id': s.id, 'name': s.s_name} for s in subjects]
+        chapters = CourseModule.query.filter(CourseModule.name.ilike(f'%{search_query}%')).all()
+        results["chapters"] = [{'id': c.id, 'name': c.name, 'subject_name': c.course.s_name} for c in chapters]
+        # Query quizzes
+        quizzes = Assessment.query.filter(Assessment.q_name.ilike(f'%{search_query}%')).all()
+        results["quizzes"] = [{'id': q.id, 'name': q.q_name, 'chapter_name': q.chapter.name} for q in quizzes]
+        # --- Admin-only results ---
+        if user_role == 'admin':
+            users = Account.query.filter(Account.username.ilike(f'%{search_query}%'), Account.role == 'user').all()
+            results["users"] = [{'id': u.id, 'username': u.username, 'full_name': f'{u.f_name} {u.l_name}'} for u in users]
+        return results, 200

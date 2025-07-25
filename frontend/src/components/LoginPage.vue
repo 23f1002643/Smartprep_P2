@@ -55,7 +55,7 @@ export default {
           if (authStore.role === 'admin') {
             this.$router.push('/admin/dashboard');
           } else {
-            this.$router.push('/user/dashboard');
+            this.$router.push('/user-dashboard');
           }
         } else {
           this.msg = 'Login failed. Please check your credentials.';

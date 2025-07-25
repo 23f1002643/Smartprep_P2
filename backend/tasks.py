@@ -6,7 +6,7 @@ from sqlalchemy import func
 from backend.config import config_settings
 import smtplib, os, tempfile, shutil, csv, json
 from flask import render_template
-from app import ns
+# from app import ns
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -23,11 +23,14 @@ def send_email(to_email, sub, body, att_path=None):
     smtp_port = config_settings['MAIL_PORT']
     sender_email= config_settings['MAIL_DEFAULT_SENDER']
     try:
-        msg = MIMEMultipart()
+        msg = MIMEMultipart('alternative')
         msg['From'] = sender_email
         msg['To'] = to_email
-        msg.attach(MIMEText(body, 'html'))
         msg['Subject'] = sub
+
+        # Attach the HTML body
+        html_part = MIMEText(body, 'html')
+        msg.attach(html_part)
         
         # Add attachment if provided
         if att_path and os.path.exists(att_path):
@@ -59,6 +62,7 @@ def send_email(to_email, sub, body, att_path=None):
 
 @shared_task(bind=True, name='backend.tasks.email_for_daily_reminders')
 def email_for_daily_reminders(self):
+    from app import ns
     with ns.app_context():
         self.update_state(
             state='PROGRESS',
@@ -188,7 +192,7 @@ def create_reminder_email_template(user, quiz_list):
                 <p>🚀 Ready to challenge yourself? Login to Quiz Master and start your learning journey!</p>
                 
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="http://localhost:5000/login" style="background-color: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px;">Start Quiz Now!</a>
+                    <a href="http://localhost:5173/" style="background-color: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px;">Start Quiz Now!</a>
                 </div>
             </div>
             <div class="footer">
@@ -205,9 +209,9 @@ def generate_monthly_report(self):
     self.update_state( state='PROGRESS', meta={'current': 0, 'total': 0, 'status': 'Starting monthly report generation...'})
 
     today = datetime.now().date()
-    first_day_current_month = today.replace(day=1)
-    last_day_previous_month = first_day_current_month - timedelta(days=1)
-    first_day_previous_month = last_day_previous_month.replace(day=1)
+    start_date = today.replace(day=1)
+    end_date = today + timedelta(days=1)
+
 
     users = Account.query.filter_by(active=True, role='user').all()
 
@@ -217,8 +221,8 @@ def generate_monthly_report(self):
     for i, user in enumerate(users):
         scores = ExamPerformance.query.filter(
             ExamPerformance.user_id == user.id,
-            ExamPerformance.time_of_attempt >= first_day_previous_month,
-            ExamPerformance.time_of_attempt < first_day_current_month
+            ExamPerformance.time_of_attempt >= start_date,
+            ExamPerformance.time_of_attempt < end_date
         ).all()
 
         if True : # True only for debugging purpose
@@ -244,7 +248,7 @@ def generate_monthly_report(self):
                     'time': s.time_of_attempt.strftime('%H:%M')
                 })
 
-            month_name = last_day_previous_month.strftime('%B %Y')
+            month_name = end_date.strftime('%B %Y')
             try :
                 html = create_monthly_report_template(user, quiz_details, total_quizzes, avg_score, month_name)
             except Exception as e:
@@ -268,13 +272,11 @@ def generate_monthly_report(self):
         'status': 'completed',
         'total_users': total_users,
         'reports_sent': reports_sent,
-        'month': last_day_previous_month.strftime('%B %Y')
+        'month': end_date.strftime('%B %Y')
     }
 
 def create_monthly_report_template(user, quiz_details, total_quizzes, average_score, month):
-    quiz_rows_html = ""
-    for quiz in quiz_details:
-        quiz_rows_html += f"""
+    quiz_rows_html = "".join(f"""
         <tr>
             <td>{quiz['quiz_name']}</td>
             <td>{quiz['subject']}</td>
@@ -283,139 +285,198 @@ def create_monthly_report_template(user, quiz_details, total_quizzes, average_sc
             <td>{quiz['percentage']}%</td>
             <td>{quiz['date']} {quiz['time']}</td>
         </tr>
-        """
+    """ for quiz in quiz_details)
 
     plural_suffix = 'es' if total_quizzes != 1 else ''
-    
-    if average_score >= 80:
-        performance_feedback = "Excellent work! Keep it up!"
-    elif average_score >= 60:
-        performance_feedback = "Good effort! Try to improve your score next month."
-    else:
-        performance_feedback = "There's room for improvement. Practice more to boost your scores!"
 
-    return render_template(
-        'monthly_report.html',
-        name=f"{user.f_name} {user.l_name}",
-        quiz_rows=quiz_rows_html,
-        total_quizzes=total_quizzes,
-        average_score=average_score,
-        month=month,
-        plural_suffix=plural_suffix,
-        performance_feedback=performance_feedback
+    performance_feedback = (
+        "Excellent work! Keep it up!" if average_score >= 80 else
+        "Good effort! Try to improve your score next month." if average_score >= 60 else
+        "There's room for improvement. Practice more to boost your scores!"
     )
 
-# @celery.task(bind=True, name='export_admin_user_data')
-# def export_admin_user_data(self, admin_id):
-#     self.update_state(
-#         state='PROGRESS',
-#         meta={'current': 0, 'total': 100, 'status': 'Starting admin CSV export...'}
-#     )
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Monthly Activity Report</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; }}
+            .container {{ max-width: 800px; margin: 0 auto; }}
+            .header {{ background-color: #28a745; color: white; padding: 20px; text-align: center; }}
+            .content {{ padding: 20px; background-color: #f8f9fa; }}
+            .stats {{ display: flex; justify-content: space-around; margin: 20px 0; }}
+            .stat-box {{ background-color: white; padding: 20px; border-radius: 5px; text-align: center; min-width: 150px; }}
+            table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+            th {{ background-color: #e9ecef; padding: 10px; text-align: left; }}
+            td {{ padding: 8px; border-bottom: 1px solid #eee; }}
+            .footer {{ text-align: center; margin-top: 20px; color: #6c757d; }}
+        </style>
+    </head>
+    <body>
+    <div class="container">
+        <div class="header">
+            <h2>📊 Monthly Activity Report - {month}</h2>
+            <p>Your Quiz Performance Summary</p>
+        </div>
+        <div class="content">
+            <h3>Hello {user.f_name} {user.l_name}!</h3>
+            <p>Here's your quiz performance summary for {month}. Keep up the great work!</p>
 
-#     admin = Account.query.get(admin_id)
-#     if not admin or admin.role != 'admin':
-#         return {'status': 'error', 'message': 'Unauthorized access'}
+            <div class="stats">
+                <div class="stat-box">
+                    <h4>🎯 Total Quizzes</h4>
+                    <h2>{total_quizzes}</h2>
+                </div>
+                <div class="stat-box">
+                    <h4>📈 Average Score</h4>
+                    <h2>{average_score}%</h2>
+                </div>
+            </div>
 
-#     users = Account.query.filter_by(role='user').all()
-#     if not users:
-#         return {'status': 'error', 'message': 'No users found'}
+            <h4>📚 Detailed Quiz Results:</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Quiz Name</th>
+                        <th>Subject</th>
+                        <th>Chapter</th>
+                        <th>Score</th>
+                        <th>Percentage</th>
+                        <th>Date & Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {quiz_rows_html}
+                </tbody>
+            </table>
 
-#     temp_dir = tempfile.mkdtemp()
-#     csv_filename = f"admin_users_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-#     csv_path = os.path.join(temp_dir, csv_filename)
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                <h4>💡 Performance Insights:</h4>
+                <ul>
+                    <li>You completed {total_quizzes} quiz{plural_suffix} this month</li>
+                    <li>Your average score was {average_score}%</li>
+                    <li>{performance_feedback}</li>
+                </ul>
+            </div>
 
-#     self.update_state(
-#         state='PROGRESS',
-#         meta={'current': 25, 'total': 100, 'status': 'Generating admin CSV file...'}
-#     )
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="http://localhost:5173/" style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px;">Continue Learning</a>
+            </div>
+        </div>
+        <div class="footer">
+            <p>Best regards,<br>Quiz Master Team</p>
+            <p><small>This report was automatically generated based on your quiz activity.</small></p>
+        </div>
+    </div>
+    </body>
+    </html>
+    """
 
-#     with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
-#         fieldnames = [
-#             'user_id', 'username', 'full_name', 'email', 'mobile_no',
-#             'qualification', 'dob', 'registration_date', 'active_status',
-#             'total_quizzes_taken', 'total_score', 'total_max_marks',
-#             'average_percentage', 'last_quiz_date', 'performance_level'
-#         ]
-#         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-#         writer.writeheader()
+@shared_task(bind=True, name='export_user_data_by_admin')
+def export_user_data_by_admin(self, admin_id):
+    self.update_state(
+        state='PROGRESS',
+        meta={'current': 0, 'total': 100, 'status': 'Starting user data export...'}
+    )
+    from app import ns # for delay due to circular import
+    with ns.app_context():
+        admin = Account.query.get(admin_id)
+        if not admin or admin.role != 'admin':
+            self.update_state(state='FAILURE', meta={'status': 'Error', 'message': 'Unauthorized access'})
+            return {'status': 'error', 'message': 'Unauthorized access'}
 
-#         for i, user in enumerate(users):
-#             user_scores = ExamPerformance.query.filter_by(user_id=user.id).all()
-#             total_quizzes = len(user_scores)
-#             total_score = sum(score.score for score in user_scores)
-#             total_max_marks = sum(score.max_marks for score in user_scores)
-#             average_percentage = round((total_score / total_max_marks) * 100, 2) if total_max_marks > 0 else 0
+        users = Account.query.filter_by(role='user').all()
+        if not users:
+            self.update_state(state='FAILURE', meta={'status': 'Error', 'message': 'No users found to export'})
+            return {'status': 'error', 'message': 'No users found'}
+        
+        temp_dir = tempfile.mkdtemp()
+        csv_filename = f"admin_users_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        csv_path = os.path.join(temp_dir, csv_filename)
 
-#             last_quiz_date = ''
-#             if user_scores:
-#                 last_attempt = max(user_scores, key=lambda x: x.time_of_attempt)
-#                 last_quiz_date = last_attempt.time_of_attempt.strftime('%Y-%m-%d %H:%M:%S')
+        self.update_state(
+            state='PROGRESS',
+            meta={'current': 20, 'total': 100, 'status': 'Generating CSV file...'}
+        )
+        
+        with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
+            fieldnames = [
+                'user_id', 'username', 'full_name', 'email', 'mobile_no',
+                'qualification', 'dob', 'registration_date', 'active_status',
+                'total_quizzes_taken', 'total_score', 'total_max_marks',
+                'average_percentage', 'last_quiz_date', 'performance_level'
+            ]
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
 
-#             performance_level = (
-#                 'Excellent' if average_percentage >= 80 else
-#                 'Good' if average_percentage >= 60 else
-#                 'Average' if average_percentage >= 40 else
-#                 'Below Average' if average_percentage >= 20 else
-#                 'Poor'
-#             )
+            total_users = len(users)
+            for i, user in enumerate(users):
+                user_scores = ExamPerformance.query.filter_by(user_id=user.id).all()
+                total_quizzes = len(user_scores)
+                total_score = sum(score.score for score in user_scores)
+                total_max_marks = sum(score.max_marks for score in user_scores)
+                average_percentage = round((total_score / total_max_marks) * 100, 2) if total_max_marks > 0 else 0
+                last_quiz_date = ''
+                if user_scores:
+                    last_attempt = max(user_scores, key=lambda x: x.time_of_attempt)
+                    last_quiz_date = last_attempt.time_of_attempt.strftime('%Y-%m-%d %H:%M:%S')
+                performance_level = (
+                    'Excellent' if average_percentage >= 80 else
+                    'Good' if average_percentage >= 60 else
+                    'Average' if average_percentage >= 40 else
+                    'Below Average'
+                )
+                
+                # --- THIS IS THE CORRECTED LINE ---
+                writer.writerow({
+                    'user_id': user.id, 'username': user.username, 'full_name': f"{user.f_name} {user.l_name}",
+                    'email': user.email, 'mobile_no': user.mobile_no, 'qualification': user.edu_qul,
+                    'dob': user.dob, 'registration_date': user.reg_date, 'active_status': user.active,
+                    'total_quizzes_taken': total_quizzes, 'total_score': total_score, 'total_max_marks': total_max_marks,
+                    'average_percentage': average_percentage, 'last_quiz_date': last_quiz_date, 'performance_level': performance_level
+                })
+                
+                progress = 20 + int((i + 1) / total_users * 60)
+                self.update_state(
+                    state='PROGRESS',
+                    meta={'current': progress, 'total': 100, 'status': f'Processing user {i + 1}/{total_users}'}
+                )
+        
+        self.update_state(
+            state='PROGRESS',
+            meta={'current': 85, 'total': 100, 'status': 'Sending CSV via email...'}
+        )
+        
+        admin_name = f"{admin.f_name} {admin.l_name}"
+        export_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        user_count = len(users)
 
-#             writer.writerow({
-#                 'user_id': user.id,
-#                 'username': user.username,
-#                 'full_name': f"{user.f_name} {user.l_name}",
-#                 'email': user.email,
-#                 'mobile_no': user.mobile_no,
-#                 'qualification': user.edu_qul,
-#                 'dob': user.dob,
-#                 'registration_date': user.registration_date,
-#                 'active_status': user.active,
-#                 'total_quizzes_taken': total_quizzes,
-#                 'total_score': total_score,
-#                 'total_max_marks': total_max_marks,
-#                 'average_percentage': average_percentage,
-#                 'last_quiz_date': last_quiz_date,
-#                 'performance_level': performance_level
-#             })
+        email_body = f"""
+        <html>
+        <body>
+            <p>Hello {admin_name},</p>
+            <p>Your requested user data export is complete and attached to this email.</p>
+        </body>
+        </html>
+        """
 
-#             progress = 25 + ((i + 1) * 50 // len(users))
-#             current_task.update_state(
-#                 state='PROGRESS',
-#                 meta={
-#                     'current': progress,
-#                     'total': 100,
-#                     'status': f'Processing user {i + 1}/{len(users)}'
-#                 }
-#             )
+        subject = f"Admin User Data Export - {datetime.now().strftime('%Y-%m-%d')}"
+        email_sent = send_email(admin.email, subject, email_body, csv_path)
+        shutil.rmtree(temp_dir)
+        
+        self.update_state(
+            state='SUCCESS',
+            meta={'current': 100, 'total': 100, 'status': 'Export completed successfully!'}
+        )
 
-#     self.update_state(
-#         state='PROGRESS',
-#         meta={'current': 85, 'total': 100, 'status': 'Sending admin CSV via email...'}
-#     )
-
-#     with ns.app_context():
-#         template = template_env.get_template("admin_export.html")
-#         email_body = template.render(
-#             admin_name=f"{admin.f_name} {admin.l_name}",
-#             export_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-#             user_count=len(users)
-#         )
-
-#     subject = f"Admin User Data Export - {datetime.now().strftime('%Y-%m-%d')}"
-#     email_sent = send_email(admin.email, subject, email_body, csv_path)
-
-#     shutil.rmtree(temp_dir)
-
-#     self.update_state(
-#         state='SUCCESS',
-#         meta={'current': 100, 'total': 100, 'status': 'Export completed successfully!'}
-#     )
-
-#     return {
-#         'status': 'completed',
-#         'message': 'CSV export completed and sent via email',
-#         'total_users': len(users),
-#         'email_sent': email_sent
-#     }
+    return {
+        'status': 'completed',
+        'message': 'CSV export completed and sent via email',
+        'total_users': len(users),
+        'email_sent': email_sent
+    }
 
 # @celery_app.task(bind=True, name='backend.tasks.export_user_quiz_data')
 # def export_user_quiz_data(self, user_id):

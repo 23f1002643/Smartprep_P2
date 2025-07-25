@@ -1,8 +1,10 @@
 from flask_sqlalchemy import SQLAlchemy  
 from datetime import datetime, timezone
+from pytz import timezone
 
 db = SQLAlchemy() 
 Base = db.Model
+IST = timezone('Asia/Kolkata')
 class Account(Base):
     __tablename__ = 'Users'
     
@@ -102,7 +104,6 @@ class AssessmentProblem(Base):
     opt4 = db.Column(db.String(150), nullable=False)
     cor_opt = db.Column(db.Integer, nullable=False)
     
-    # Relationship
     quiz = db.relationship('Assessment', back_populates='questions') 
     # def __init__(self, que_no, quiz_id, statement, opt1, opt2, opt3, opt4, cor_opt):
     #     self.que_no = que_no
@@ -121,7 +122,7 @@ class ExamPerformance(Base):
     score = db.Column(db.Integer, nullable=False)
     quiz_id = db.Column(db.Integer, db.ForeignKey('Quiz_Table.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('Users.id'), nullable=False)
-    time_of_attempt = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    time_of_attempt = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(IST))
     max_marks = db.Column(db.Integer, nullable=False)
     
     # Relationships

@@ -10,18 +10,19 @@ class CeleryConfig:
     beat_schedule = {
         "send-daily-reminders after 60": {
             "task": "backend.tasks.greeting_task",
-            "schedule": 30.0,  # for testing
+            "schedule": 7200.0,  # for testing, after 2 hours
         },
         "daily-user-reminder-at-6pm": {
             "task": "backend.tasks.email_for_daily_reminders",
-            "schedule": crontab(hour=23, minute=23),  # 6 PM IST daily
+            "schedule": crontab(hour=18, minute=00),  # 6 PM IST daily
             "args": (),
         },
         "monthly-report-generation": {
             "task": "backend.tasks.generate_monthly_report",
-            "schedule": crontab(day_of_month=13, hour=2, minute=5),  # 13th day of every month at 1:45 AM
+            "schedule": crontab(day_of_month=25, hour=21, minute=49),  # 25th day of every month at 7:20 PM
             "args": (),
         },
+        
     }
     timezone = "Asia/Kolkata"
     enable_utc = True
