@@ -67,7 +67,6 @@ export default {
       try {
         const token = localStorage.getItem('token');
         if (!token) throw new Error("Not logged in");
-
         const response = await fetch('/api/admin/statistics', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
