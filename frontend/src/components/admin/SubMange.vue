@@ -1,7 +1,21 @@
 <template>
+  
   <div class="container mt-3">
     <!-- Add Subject Card -->
     <div class="card shadow-sm p-3 bg-white">
+       <!-- Search Bar -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="input-group w-80">
+        <input
+          type="text"
+          class="form-control"
+          v-model="search"
+          placeholder="Search subjects"
+          aria-label="Search subjects"
+          style="width: 200px"
+        />
+      </div>
+    </div>
       <h2 class="mb-2 text-primary text-center">📚 Manage Subjects</h2>
 
       <!-- Add Subject Form -->
@@ -39,7 +53,7 @@
 
       <div
         class="card mt-3 shadow-sm bg-white"
-        v-for="subject in subjects"
+        v-for="subject in filteredSubjects"
         :key="subject.id"
       >
         <div class="card-body d-flex justify-content-between align-items-center">
@@ -55,8 +69,8 @@
         </div>
       </div>
 
-      <div v-if="subjects.length === 0" class="alert alert-info mt-4">
-        No subjects added yet.
+      <div v-if="filteredSubjects.length === 0" class="alert alert-info mt-4">
+        No subjects found.
       </div>
     </div>
 
@@ -94,6 +108,7 @@ export default {
     return {
       s_name: '',
       desc: '',
+      search: '',
       subjects: [],
       editSubjectData: {
         id: null,
@@ -104,6 +119,16 @@ export default {
   },
   mounted() {
     this.loadSubjects();
+  },
+  computed: {
+    filteredSubjects() {
+      const search = this.search.toLowerCase();
+      return this.subjects.filter(
+        (subject) =>
+          subject.name.toLowerCase().includes(search) ||
+          subject.desc.toLowerCase().includes(search)
+      );
+    },
   },
   methods: {
     async loadSubjects() {
@@ -202,4 +227,5 @@ export default {
   },
 };
 </script>
+
 

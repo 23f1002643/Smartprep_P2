@@ -1,21 +1,20 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginPage from '@/components/LoginPage.vue';
 import Register from '@/components/Register.vue';
-import AdminDash from '@/components/AdminDash.vue';
-import SubMange from '@/components/SubMange.vue';
-import ChapMange from '@/components/ChapMange.vue';
-import Assessment from '@/components/Assessment.vue';
-import ProblemStatement from '@/components/ProblemStatement.vue';
-import UserMange from '@/components/UserMange.vue';
-import UserDash from '@/components/UserDash.vue';
-import AvailableChap from '@/components/AvailableChap.vue';
-import ViewQuizzes from '@/components/ViewQuizzes.vue';
-import QuizStart from '@/components/QuizStart.vue';
+import AdminDash from '@/components/admin/AdminDash.vue';
+import SubMange from '@/components/admin/SubMange.vue';
+import ChapMange from '@/components/admin/ChapMange.vue';
+import Assessment from '@/components/admin/Assessment.vue';
+import ProblemStatement from '@/components/admin/ProblemStatement.vue';
+import UserMange from '@/components/admin/UserMange.vue';
+import UserDash from '@/components/user/UserDash.vue';
+import AvailableChap from '@/components/user/AvailableChap.vue';
+import ViewQuizzes from '@/components/user/ViewQuizzes.vue';
+import QuizStart from '@/components/user/QuizStart.vue';
 import QuizResult from '@/components/user/QuizResult.vue';
 import ScoreHistory from '@/components/user/ScoreHistory.vue';
 import UserStat from '@/components/user/UserStat.vue';
 import AdminStat from '@/components/admin/AdminStat.vue';
-import SearchResults from '@/components/SearchResults.vue';
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -110,12 +109,6 @@ const router = createRouter({
       name: 'admin_stat',
       component: AdminStat,
     },
-    {
-    path: '/search',
-    name: 'SearchResults',
-    component: SearchResults,
-    meta: { requiresAuth: true } 
-  },
   ],
 })
 

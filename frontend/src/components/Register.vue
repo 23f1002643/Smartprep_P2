@@ -8,8 +8,9 @@
           </div>
           <div class="card-body">
             <form @submit.prevent="register">
+              <div v-if="msg" class="alert alert-danger text-center mb-3">{{ msg }}</div>
+              
               <div class="form-group mb-3">
-                <div v-if="msg" class="alert alert-danger text-center">{{ msg }}</div>
                 <input type="text" class="form-control" id="username" placeholder="Username" v-model="username" required>
               </div>
               <div class="form-group mb-3">
@@ -89,22 +90,18 @@ export default {
           },
           body: JSON.stringify(payload),
         });
-        let data;
-        try {
-          data = await response.json();
-        } catch (e) {
-          this.msg = 'Server did not return valid JSON.';
-          return;
-        }
+        
+        const data = await response.json();
+        
         if (response.ok) {
-          alert(`Registration successful`);
-          this.$router.push('/login');
+          alert(data.message || 'Registration successful!'); 
+          this.$router.push('/');
         } else {
-          this.msg = data.msg || 'Ohh no! Signup failed';
+          this.msg = data.message || 'Ohh no! Signup failed';
         }
       } catch (error) {
         console.error(error);
-        this.msg = 'Something went wrong';
+        this.msg = 'Something went wrong. Please try again.';
       }
     },
   },

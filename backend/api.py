@@ -581,6 +581,7 @@ class UserDashAPI(Resource):
                     'name': q.q_name,
                     'subject': q.chapter.course.s_name,
                     'chapter': q.chapter.name,
+                    'chapter_id': q.chapter.id,
                     'date_of_quiz': q.date_of_quiz.strftime('%Y-%m-%d'),
                     'time_duration': str(q.time_duration)
                 } for q in quizzes

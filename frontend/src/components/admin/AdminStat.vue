@@ -10,25 +10,31 @@
       {{ error }}
     </div>
 
-    <div v-if="chartData" class="row">
-      <!-- 1. Quiz Attempts by Subject (for Pie Chart) -->
-      <div class="col-md-6 mb-4">
-        <canvas id="attemptsBySubjectChart" height="200"></canvas>
+    <div v-if="chartData" class="row g-4">
+      <!-- Pie Chart -->
+      <div class="col-md-6">
+        <div class="chart-wrapper">
+          <canvas id="attemptsBySubjectChart"></canvas>
+        </div>
       </div>
 
-      <!-- 2. Average Score by Quiz (for Bar Chart) -->
-      <div class="col-md-6 mb-4">
-        <canvas id="avgScoreByQuizChart" height="200"></canvas>
+      <!-- Bar Charts -->
+      <div class="col-md-6">
+        <div class="chart-wrapper">
+          <canvas id="avgScoreByQuizChart"></canvas>
+        </div>
       </div>
 
-      <!-- 3. Total Attempts per Quiz (for Bar Chart) -->
-      <div class="col-md-6 mb-4">
-        <canvas id="attemptsPerQuizChart" height="200"></canvas>
+      <div class="col-md-6">
+        <div class="chart-wrapper">
+          <canvas id="attemptsPerQuizChart"></canvas>
+        </div>
       </div>
 
-      <!-- 4. Average Score by Subject (for Bar Chart) -->
-      <div class="col-md-6 mb-4">
-        <canvas id="avgScoreBySubjectChart" height="200"></canvas>
+      <div class="col-md-6">
+        <div class="chart-wrapper">
+          <canvas id="avgScoreBySubjectChart"></canvas>
+        </div>
       </div>
     </div>
   </div>
@@ -49,6 +55,11 @@ export default {
   },
   mounted() {
     this.fetchAdminStatistics();
+    window.addEventListener("resize", this.redrawCharts);
+  },
+  beforeUnmount() {
+    window.removeEventListener("resize", this.redrawCharts);
+    this.destroyCharts();
   },
   methods: {
     async fetchAdminStatistics() {
@@ -73,149 +84,116 @@ export default {
         this.loading = false;
       }
     },
-    renderCharts() {
-      // Destroy previous charts to prevent memory leaks
+    destroyCharts() {
       this.chartInstances.forEach(chart => chart.destroy());
       this.chartInstances = [];
-      // === 1. Quiz Attempts by Subject (Pie Chart) ===
-      const attemptsBySubjectLabels = Object.keys(this.chartData.attempts_by_subject);
-      const attemptsBySubjectData = Object.values(this.chartData.attempts_by_subject);
-      const attemptsBySubjectCtx = document.getElementById("attemptsBySubjectChart")?.getContext("2d");
-      if (attemptsBySubjectCtx) {
-        const chart = new Chart(attemptsBySubjectCtx, {
+    },
+    redrawCharts() {
+      if (this.chartData) {
+        this.destroyCharts();
+        this.$nextTick(() => this.renderCharts());
+      }
+    },
+    renderCharts() {
+      this.destroyCharts();
+
+      const charts = [
+        {
+          id: "attemptsBySubjectChart",
           type: "pie",
           data: {
-            labels: attemptsBySubjectLabels,
+            labels: Object.keys(this.chartData.attempts_by_subject),
             datasets: [{
-              label: "Quiz Attempts",
-              data: attemptsBySubjectData,
-              backgroundColor: ["#20BDFF", "#FFD700", "#FF8C00", "#FF69B4", "#00BFFF"],
-              hoverBorderColor: "#fff"
+              data: Object.values(this.chartData.attempts_by_subject),
+              backgroundColor: ["#20BDFF", "#FFD700", "#FF8C00", "#FF69B4", "#00BFFF"]
             }]
           },
           options: {
             responsive: true,
-            plugins: {
-              title: {
-                display: true,
-                text: "Quiz Attempts by Subject"
-              },
-              legend: {
-                position: "right"
-              }
-            }
+            maintainAspectRatio: false,
+            plugins: { title: { display: true, text: "Quiz Attempts by Subject" }, legend: { position: 'right' } }
           }
-        });
-        this.chartInstances.push(chart);
-      }
-      // === 2. Average Score by Quiz (Bar Chart) ===
-      const avgScoreByQuizLabels = Object.keys(this.chartData.avg_score_by_quiz);
-      const avgScoreByQuizData = Object.values(this.chartData.avg_score_by_quiz);
-      const avgScoreByQuizCtx = document.getElementById("avgScoreByQuizChart")?.getContext("2d");
-      if (avgScoreByQuizCtx) {
-        const chart = new Chart(avgScoreByQuizCtx, {
+        },
+        {
+          id: "avgScoreByQuizChart",
           type: "bar",
           data: {
-            labels: avgScoreByQuizLabels,
+            labels: Object.keys(this.chartData.avg_score_by_quiz),
             datasets: [{
-              label: "Average Score (%)",
-              data: avgScoreByQuizData,
+              label: "Avg. Score (%)",
+              data: Object.values(this.chartData.avg_score_by_quiz),
               backgroundColor: "#20BDFF"
             }]
           },
           options: {
             responsive: true,
-            plugins: {
-              title: {
-                display: true,
-                text: "Average Score by Quiz"
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                max: 100
-              }
-            }
+            maintainAspectRatio: false,
+            plugins: { title: { display: true, text: "Average Score by Quiz" } },
+            scales: { y: { beginAtZero: true, max: 100 } }
           }
-        });
-        this.chartInstances.push(chart);
-      }
-      // === 3. Total Attempts per Quiz (Bar Chart) ===
-      const attemptsPerQuizLabels = Object.keys(this.chartData.attempts_per_quiz);
-      const attemptsPerQuizData = Object.values(this.chartData.attempts_per_quiz);
-      const attemptsPerQuizCtx = document.getElementById("attemptsPerQuizChart")?.getContext("2d");
-      if (attemptsPerQuizCtx) {
-        const chart = new Chart(attemptsPerQuizCtx, {
+        },
+        {
+          id: "attemptsPerQuizChart",
           type: "bar",
           data: {
-            labels: attemptsPerQuizLabels,
+            labels: Object.keys(this.chartData.attempts_per_quiz),
             datasets: [{
               label: "Total Attempts",
-              data: attemptsPerQuizData,
+              data: Object.values(this.chartData.attempts_per_quiz),
               backgroundColor: "#00BFFF"
             }]
           },
           options: {
             responsive: true,
-            plugins: {
-              title: {
-                display: true,
-                text: "Total Attempts per Quiz"
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true
-              }
-            }
+            maintainAspectRatio: false,
+            plugins: { title: { display: true, text: "Total Attempts per Quiz" } },
+            scales: { y: { beginAtZero: true } }
           }
-        });
-        this.chartInstances.push(chart);
-      }
-      // === 4. Average Score by Subject (Bar Chart) ===
-      const avgScoreBySubjectLabels = Object.keys(this.chartData.avg_score_by_subject);
-      const avgScoreBySubjectData = Object.values(this.chartData.avg_score_by_subject);
-      const avgScoreBySubjectCtx = document.getElementById("avgScoreBySubjectChart")?.getContext("2d");
-      if (avgScoreBySubjectCtx) {
-        const chart = new Chart(avgScoreBySubjectCtx, {
+        },
+        {
+          id: "avgScoreBySubjectChart",
           type: "bar",
           data: {
-            labels: avgScoreBySubjectLabels,
+            labels: Object.keys(this.chartData.avg_score_by_subject),
             datasets: [{
-              label: "Average Score (%)",
-              data: avgScoreBySubjectData,
+              label: "Avg. Score (%)",
+              data: Object.values(this.chartData.avg_score_by_subject),
               backgroundColor: "#FF8C00"
             }]
           },
           options: {
             responsive: true,
-            plugins: {
-              title: {
-                display: true,
-                text: "Average Score by Subject"
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                max: 100
-              }
-            }
+            maintainAspectRatio: false,
+            plugins: { title: { display: true, text: "Average Score by Subject" } },
+            scales: { y: { beginAtZero: true, max: 100 } }
           }
-        });
-        this.chartInstances.push(chart);
-      }
+        }
+      ];
+
+      charts.forEach(({ id, type, data, options }) => {
+        const ctx = document.getElementById(id)?.getContext("2d");
+        if (ctx) {
+          const chart = new Chart(ctx, { type, data, options });
+          this.chartInstances.push(chart);
+        }
+      });
     }
   }
 };
 </script>
 
 <style scoped>
-canvas {
-  background: white;
+.chart-wrapper {
+  position: relative;
+  height: 350px;
+  background: #fff;
   padding: 15px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 </style>

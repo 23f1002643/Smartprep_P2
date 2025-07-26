@@ -57,9 +57,21 @@
       </div>
       
       <div class="col-lg-7">
-        <h5 class="fw-dark text-secondary">Available Questions ({{ questions.length }})</h5>
-        <div v-if="!questions.length" class="card card-body text-center text-muted">
-          <p>No questions yet. Use the form on the left to add one.</p>
+        <h5 class="fw-dark " style="color:black;">Available Questions ({{ filteredQuestions.length }})</h5>
+        
+        <!-- Search Bar -->
+        <div class="input-group shadow-sm mb-3">
+            <input
+              type="text"
+              class="form-control border-0"
+              placeholder="Search questions by statement..."
+              v-model="searchQuery"
+            />
+        </div>
+
+        <div v-if="!filteredQuestions.length" class="card card-body text-center text-muted">
+          <p v-if="searchQuery">No questions found matching your search.</p>
+          <p v-else>No questions yet. Use the form on the left to add one.</p>
         </div>
         <div class="card" v-else>
           <div class="table-responsive">
@@ -74,7 +86,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="q in sortedQuestions" :key="q.id" :class="{'table-primary': selectedQuestion && selectedQuestion.id === q.id}">
+                <tr v-for="q in filteredQuestions" :key="q.id" :class="{'table-primary': selectedQuestion && selectedQuestion.id === q.id}">
                   <td class="ps-3 fw-bold">{{ q.que_no }}</td>
                   <td style="min-width: 250px;">{{ q.statement }}</td>
                   <td style="min-width: 200px;">
@@ -108,6 +120,7 @@ export default {
   data() {
     return {
       questions: [],
+      searchQuery: '', 
       form: this.getInitialFormState(),
       selectedQuestion: null,
       editMode: false,
@@ -115,8 +128,15 @@ export default {
     };
   },
   computed: {
-    sortedQuestions() {
-      return [...this.questions].sort((a, b) => a.que_no - b.que_no);
+    filteredQuestions() {
+      let filtered = this.questions;
+      if (this.searchQuery) {
+        const query = this.searchQuery.toLowerCase();
+        filtered = this.questions.filter(q => 
+          q.statement.toLowerCase().includes(query)
+        );
+      }
+      return [...filtered].sort((a, b) => a.que_no - b.que_no);
     }
   },
   mounted() {
@@ -146,7 +166,6 @@ export default {
       this.form = { ...question };
       this.editMode = true;
       this.message.text = ''; 
-      // scroll to top if needed on smaller screens
       if (window.innerWidth < 992) {
           this.$el.scrollIntoView({ behavior: 'smooth' });
       }

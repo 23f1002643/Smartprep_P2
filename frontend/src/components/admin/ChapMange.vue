@@ -2,6 +2,26 @@
   <div class="container chapter-management mt-5">
     <h2 class="text-center">Chapter Management</h2>
 
+    <!-- Search bar -->
+    <div class="row mt-3">
+      <div class="col-md-6">
+        <form @submit.prevent>
+          <div class="input-group">
+            <input
+              type="text"
+              class="form-control"
+              placeholder="Search chapter"
+              v-model="searchQuery"
+              @input="searchChapters"
+            />
+            <button class="btn btn-primary" type="submit" disabled>
+              <i class="bi bi-search"></i>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Add Chapter -->
     <div class="row mt-4">
       <div class="col-md-6">
@@ -98,7 +118,7 @@
 
       <div
         class="card mt-3 shadow-sm bg-white"
-        v-for="chapter in chapters"
+        v-for="chapter in searchedChapters"
         :key="chapter.id"
       >
         <div
@@ -134,8 +154,8 @@
         </div>
       </div>
 
-      <div v-if="chapters.length === 0" class="alert alert-info mt-4">
-        No chapters added yet.
+      <div v-if="searchedChapters.length === 0" class="alert alert-info mt-4">
+        No chapters found.
       </div>
     </div>
   </div>
@@ -156,6 +176,8 @@ export default {
         desc: "",
       },
       chapters: [],
+      searchQuery: "",
+      searchedChapters: [],
     };
   },
   mounted() {
@@ -173,6 +195,7 @@ export default {
         });
         const data = await res.json();
         this.chapters = data || [];
+        this.searchedChapters = this.chapters;
       } catch (err) {
         console.error("Failed to fetch chapters:", err);
       }
@@ -276,6 +299,16 @@ export default {
         console.error("Delete chapter failed:", err);
       }
     },
+    searchChapters() {
+      this.searchedChapters = this.chapters.filter((chapter) => {
+        const name = chapter.name.toLowerCase();
+        const desc = chapter.description.toLowerCase();
+        const query = this.searchQuery.toLowerCase();
+
+        return name.includes(query) || desc.includes(query);
+      });
+    },
   },
 };
 </script>
+

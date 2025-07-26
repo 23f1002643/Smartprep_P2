@@ -1,16 +1,17 @@
 from flask_sqlalchemy import SQLAlchemy  
 from datetime import datetime, timezone
-from pytz import timezone
+# from pytz import timezone
 
 db = SQLAlchemy() 
 Base = db.Model
-IST = timezone('Asia/Kolkata')
+# IST = timezone('Asia/Kolkata')
 class Account(Base):
     __tablename__ = 'Users'
     
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    reg_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    # reg_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    reg_date = db.Column(db.DateTime, default=datetime.utcnow)
     f_name = db.Column(db.String(80), nullable=False)
     l_name = db.Column(db.String(80), nullable=False)
     pwd = db.Column(db.String(130), nullable=False)
@@ -122,7 +123,7 @@ class ExamPerformance(Base):
     score = db.Column(db.Integer, nullable=False)
     quiz_id = db.Column(db.Integer, db.ForeignKey('Quiz_Table.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('Users.id'), nullable=False)
-    time_of_attempt = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(IST))
+    time_of_attempt = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     max_marks = db.Column(db.Integer, nullable=False)
     
     # Relationships

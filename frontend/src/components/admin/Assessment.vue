@@ -33,8 +33,23 @@
 
     <div class="mt-5">
       <h4 class="text-secondary">📋 Current Quizzes</h4>
+
+      <!-- Search Bar -->
       <div class="row mt-3">
-        <div v-for="quiz in quizzes" :key="quiz.id" class="col-md-3 mb-3">
+        <div class="col-md-6">
+          <div class="input-group shadow-sm">
+            <!-- <span class="input-group-text "><i class="fas fa-search"></i></span> -->
+            <input
+              type="text"
+              class="form-control border-0"
+              placeholder="Search quizzes by name or remarks..."
+              v-model="searchQuery"
+            />
+          </div>
+        </div>
+      </div>
+      <div class="row mt-3">
+        <div v-for="quiz in filteredQuizzes" :key="quiz.id" class="col-md-3 mb-3">
           <div class="card shadow-sm bg-white h-100">
             <div class="card-body d-flex flex-column">
               <h5 class="card-title text-primary">{{ quiz.name }}</h5>
@@ -54,11 +69,13 @@
           </div>
         </div>
       </div>
-      <div v-if="!quizzes.length" class="alert alert-info mt-4">
-        No quizzes added yet for this chapter.
+      <div v-if="!filteredQuizzes.length" class="alert alert-info mt-4">
+        <span v-if="searchQuery">No quizzes found matching your search.</span>
+        <span v-else>No quizzes added yet for this chapter.</span>
       </div>
     </div>
 
+    <!-- Edit Quiz Modal -->
     <div class="modal fade" id="editQuizModal" tabindex="-1" aria-labelledby="editQuizModalLabel" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
@@ -97,6 +114,7 @@
       </div>
     </div>
 
+    <!-- View Quiz Modal -->
     <div class="modal fade" id="viewQuizModal" tabindex="-1" aria-labelledby="viewQuizModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -134,10 +152,24 @@ export default {
       newQuiz: { name: '', date: '', hours: 0, minutes: 5, remarks: '' },
       editQuiz: { id: null, name: '', date: '', hours: 0, minutes: 5, remarks: '' },
       viewQuizData: { id: null, name: '', date: '', time_duration: '', remarks: '' },
-      quizzes: [],
+      quizzes: [], 
+      searchQuery: '', 
       editModalInstance: null,
       viewModalInstance: null,
     };
+  },
+  computed: {
+    filteredQuizzes() {
+      if (!this.searchQuery) {
+        return this.quizzes; 
+      }
+      const query = this.searchQuery.toLowerCase();
+      return this.quizzes.filter(quiz => {
+        const name = quiz.name.toLowerCase();
+        const remarks = (quiz.remarks || '').toLowerCase();
+        return name.includes(query) || remarks.includes(query);
+      });
+    }
   },
   mounted() {
     this.loadQuizzes();
@@ -159,11 +191,9 @@ export default {
       this.viewModalInstance.dispose();
     }
     
-    // Manually remove backdrop if it's still there
     const backdrops = document.querySelectorAll('.modal-backdrop');
     backdrops.forEach(backdrop => backdrop.remove());
     
-    // Manually restore body scrolling
     document.body.classList.remove('modal-open');
     document.body.style.overflow = '';
     document.body.style.paddingRight = '';

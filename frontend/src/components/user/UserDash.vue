@@ -1,7 +1,7 @@
 <template>
-  <div class="dashboard-container container-fluid text-dark py-4">
-    <header class="text-white bg-dark rounded-3 p-4 p-md-5 mb-5 shadow-lg" style="background: linear-gradient(135deg, #1a202c, #2c5282);">
-      <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
+  <div class="dashboard-container container text-dark py-4">
+    <header class="text-white bg-dark rounded-3 p-4 mb-5 shadow-lg" style="background: linear-gradient(135deg, #1a202c, #2c5282);">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
         <div class="mb-4 mb-md-0 text-center text-md-start">
           <h1 class="display-4 fw-semibold">Welcome, {{ firstName }}</h1>
           <p class="lead text-white-50 mb-0">Here's a quick look at your subjects and upcoming quizzes.</p>
@@ -17,19 +17,28 @@
           </router-link>
         </div>
       </div>
+      <div>
+        <!-- Search Bar -->
+        <div class="input-group input-group-lg shadow-sm bg-white rounded">
+            <input
+              type="text"
+              class="form-control bg-transparent border-0"
+              placeholder="Search subjects or quizzes..."
+              v-model="searchQuery"
+            />
+        </div>
+      </div>
     </header>
-
     <div v-if="isLoading" class="d-flex justify-content-center align-items-center" style="min-height: 50vh;">
       <div class="spinner-border text-dark" role="status" style="width: 3rem; height: 3rem;">
         <span class="visually-hidden">Loading...</span>
       </div>
     </div>
-
     <div v-else>
       <section class="mb-5">
         <h2 class="mb-4"><i class="bi bi-journal-bookmark-fill me-2"></i>Available Subjects</h2>
         <div class="row g-4">
-          <div v-for="subject in subjects" :key="subject.id" class="col-sm-6 col-md-4 col-lg-3">
+          <div v-for="subject in filteredSubjects" :key="subject.id" class="col-sm-6 col-md-4 col-lg-3">
             <router-link :to="{ name: 'available_chap', params: { subId: subject.id } }" class="text-decoration-none">
               <div class="card subject-card h-100 text-white bg-dark border-light shadow-sm">
                 <div class="card-body d-flex justify-content-center align-items-center">
@@ -38,33 +47,34 @@
               </div>
             </router-link>
           </div>
+          <div v-if="filteredSubjects.length === 0" class="col-12 text-center text-muted">
+            <p v-if="searchQuery">No subjects found matching your search.</p>
+            <p v-else>No subjects are available at the moment.</p>
+          </div>
         </div>
-      </section>
-      
+      </section>      
       <section>
         <h2 class="mb-4"><i class="bi bi-calendar-event me-2"></i>Upcoming Quizzes</h2>
         <div class="row g-4">
-          <div v-for="quiz in upcomingQuizzes" :key="quiz.id" class="col-md-6 col-lg-4">
+          <div v-for="quiz in filteredQuizzes" :key="quiz.id" class="col-md-6 col-lg-4">
             <div class="card quiz-card h-100 bg-dark text-white border-light shadow">
               <div class="card-body d-flex flex-column">
                 <h5 class="card-title text-warning fw-semibold mb-1">{{ quiz.subject }}</h5>
-                <p class="text-light small mb-3">Chapter: {{ quiz.chapter }}</p>
-                
+                <p class="text-light small mb-3">Chapter: {{ quiz.chapter }}</p>               
                 <ul class="list-unstyled mb-4">
                   <li><i class="bi bi-calendar-event-fill me-2 text-warning"></i><strong>Date:</strong> {{ formatDate(quiz.date_of_quiz) }}</li>
                   <li><i class="bi bi-clock-fill me-2 text-warning"></i><strong>Duration:</strong> {{ quiz.time_duration }}</li>
-                </ul>
-                
+                </ul>               
                 <div class="mt-auto d-grid gap-2 d-md-flex justify-content-end">
-                  <a href="#" @click.prevent class="btn btn-outline-light btn-sm px-3">Details</a>
+                  <router-link :to="{ name: 'available_quiz', params: { chapId: quiz.chapter_id } }" class="btn btn-outline-light btn-sm px-3">Details</router-link>
                   <router-link :to="{ name: 'start_assessment', params: { quiz_id: quiz.id } }" class="btn btn-warning btn-sm px-3 text-dark fw-semibold">Start</router-link>
                 </div>
               </div>
             </div>
           </div>
-
-          <div v-if="upcomingQuizzes.length === 0" class="col-12 text-center text-muted">
-            <p>No upcoming quizzes at the moment. Check back later!</p>
+          <div v-if="filteredQuizzes.length === 0" class="col-12 text-center text-muted">
+            <p v-if="searchQuery">No quizzes found matching your search.</p>
+            <p v-else>No upcoming quizzes at the moment. Check back later!</p>
           </div>
         </div>
       </section>
@@ -81,37 +91,55 @@ export default {
       subjects: [],
       quizzes: [],
       isLoading: true, 
+      searchQuery: '', 
     };
   },
   computed: {
-    upcomingQuizzes() {
-      const now = new Date();
-      now.setHours(0, 0, 0, 0); 
-      return this.quizzes.filter(quiz => new Date(quiz.date_of_quiz) >= now);
+    filteredSubjects() {
+        if (!this.searchQuery) {
+            return this.subjects;
+        }
+        const query = this.searchQuery.toLowerCase();
+        return this.subjects.filter(subject => 
+            (subject.name || subject.s_name).toLowerCase().includes(query)
+        );
+    },
+    // Filter quizzes based on search query
+    filteredQuizzes() {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); 
+        const upcoming = this.quizzes.filter(quiz => new Date(quiz.date_of_quiz) >= now);
+
+        if (!this.searchQuery) {
+            return upcoming;
+        }
+        const query = this.searchQuery.toLowerCase();
+        return upcoming.filter(quiz => {
+            const name = (quiz.name || quiz.q_name || '').toLowerCase();
+            const subject = (quiz.subject || '').toLowerCase();
+            const chapter = (quiz.chapter || '').toLowerCase();
+            return name.includes(query) || subject.includes(query) || chapter.includes(query);
+        });
     }
   },
   methods: {
     async fetchDashboardData() {
       this.isLoading = true;
       const token = localStorage.getItem('token');
-
       if (!token) {
         console.error("No token found. Redirecting to login.");
         this.$router.push('/');
         return;
       }
-
       try {
         const response = await fetch('/api/user-dashboard', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
-
         if (!response.ok) {
           throw new Error('Failed to fetch dashboard data');
         }
-
         const data = await response.json();
         this.subjects = data.subjects;
         this.quizzes = data.quizzes;
@@ -146,11 +174,9 @@ export default {
   border-color: #ffc107; 
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
-
 .btn-warning:hover {
   filter: brightness(1.1);
 }
-
 .spinner-border.text-dark {
   color: #343a40 !important;
 }

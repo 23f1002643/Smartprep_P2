@@ -19,14 +19,29 @@
         <h4 class="mb-0">User Management</h4>
       </div>
       <div class="card-body">
+        <!-- Search Input -->
+        <div class="mb-4">
+          <div class="input-group shadow-sm">
+            <span class="input-group-text bg-light border-0"><i class="fas fa-search"></i></span>
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              class="form-control border-0" 
+              placeholder="Search by name, username, or email..."
+            />
+          </div>
+        </div>
+
         <div v-if="isLoading" class="text-center">
           <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
           </div>
           <p class="mt-2">Loading users...</p>
         </div>
-        <div v-else-if="users.length === 0" class="text-center text-muted">
-          <p>No users found.</p>
+        <!-- Check filteredUsers length for "No results" message -->
+        <div v-else-if="filteredUsers.length === 0" class="text-center text-muted">
+          <p v-if="searchQuery">No users found matching your search.</p>
+          <p v-else>No users found.</p>
         </div>
         <div v-else class="table-responsive">
           <table class="table table-hover align-middle">
@@ -42,7 +57,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="user in users" :key="user.id">
+              <tr v-for="user in filteredUsers" :key="user.id">
                 <td>{{ user.f_name }} {{ user.l_name }}</td>
                 <td>{{ user.username }}</td>
                 <td>{{ user.email }}</td>
@@ -77,18 +92,33 @@
 </template>
 
 <script>
-import { ref, onMounted, onBeforeUnmount } from 'vue'; 
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'; 
 
 export default {
   name: 'UserManagement',
   setup() {
-    const users = ref([]);
+    const users = ref([]); // This will hold the full list of users from the API
     const isLoading = ref(true);
+    const searchQuery = ref(''); 
+    // --- Export Functionality State ---
     const exporting = ref(false);
     const exportStatus = ref('');
     const exportProgress = ref(0);
     const exportAlertClass = ref('alert-info');
     let pollingInterval = null;
+    // --- Computed Property for Filtering ---
+    const filteredUsers = computed(() => {
+      if (!searchQuery.value) {
+        return users.value; // If search is empty, show all users
+      }
+      const query = searchQuery.value.toLowerCase();
+      return users.value.filter(user => {
+        const fullName = `${user.f_name} ${user.l_name}`.toLowerCase();
+        const username = user.username.toLowerCase();
+        const email = user.email.toLowerCase();
+        return fullName.includes(query) || username.includes(query) || email.includes(query);
+      });
+    });
 
     const loadUsers = async () => {
       isLoading.value = true;
@@ -103,7 +133,7 @@ export default {
             throw new Error('Failed to fetch users');
         }
         const data = await res.json();
-        users.value = data;
+        users.value = data; 
       } catch (err) {
         console.error('Failed to fetch users:', err);
         alert('Could not load user data. Please try again.');
@@ -127,24 +157,21 @@ export default {
         const data = await res.json();
         if (res.ok) {
           alert(data.msg);
-          loadUsers(); // Refresh the user list
+          loadUsers(); 
         } else {
           alert(`Error: ${data.msg}`);
-          console.warn('Toggle status API error:', data);
         }
       } catch (err) {
         alert('An unexpected error occurred. Please try again.');
-        console.error('Toggle user status failed:', err);
       }
     };
+
     const exportUserData = async () => {
       if (exporting.value) return;
-
       exporting.value = true;
       exportStatus.value = 'Initializing export...';
       exportAlertClass.value = 'alert-info';
       exportProgress.value = 0;
-
       try {
         const res = await fetch('/api/admin/export-user-data', {
           method: 'POST',
@@ -153,20 +180,15 @@ export default {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
           },
         });
-
         if (!res.ok) {
           throw new Error('Failed to start the export process.');
         }
-
         const data = await res.json();
         const taskId = data.task_id;
         exportStatus.value = 'Export process started. Please wait...';
-        
-        // Start polling for the task status
         pollingInterval = setInterval(() => {
           pollTaskStatus(taskId);
-        }, 3000); // Poll every 3 seconds
-
+        }, 3000); 
       } catch (err) {
         exporting.value = false;
         exportStatus.value = `Error: ${err.message}`;
@@ -179,7 +201,6 @@ export default {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         });
         const data = await res.json();
-
         if (data.state === 'PROGRESS') {
           exportStatus.value = data.info.status;
           exportProgress.value = data.info.current;
@@ -211,6 +232,7 @@ export default {
     };
 
     onMounted(loadUsers);
+    
     onBeforeUnmount(() => {
       if (pollingInterval) {
         clearInterval(pollingInterval);
@@ -227,6 +249,8 @@ export default {
       exportProgress,
       exportAlertClass,
       exportUserData,
+      searchQuery,
+      filteredUsers,
     };
   },
 };

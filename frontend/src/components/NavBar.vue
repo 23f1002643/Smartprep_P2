@@ -21,18 +21,7 @@
             </li>
           </ul>
           <div class="d-flex align-items-center gap-2">
-            <form class="d-flex me-2" v-if="isLoggedIn" @submit.prevent="handleSearch(true)">
-              <input
-                class="form-control me-2"
-                type="search"
-                placeholder="Search"
-                aria-label="Search"
-                v-model="searchQuery"
-                @input="debounceSearch"
-                style="max-width: 200px"
-              />
-              <button class="btn btn-outline-success" type="submit">Search</button>
-            </form>
+            <!-- Search form has been removed -->
             <router-link v-if="isLoggedIn" to="/admin/dashboard" class="btn btn-outline-primary mx-2">Home</router-link>
 
             <router-link
@@ -67,12 +56,6 @@ import { mapState } from 'pinia';
 
 export default {
   name: "NavBar",
-  data() {
-    return {
-      searchQuery: '',      // State for the search input
-      debounceTimer: null,  // Timer for debouncing
-    };
-  },
   computed: {
     ...mapState(useAuthStore, ['isLoggedIn', 'userRole']),
   },
@@ -82,40 +65,6 @@ export default {
       authStore.logout(); 
       this.$router.push('/');
     },
-    
-    /**
-     * Navigates to the search results page.
-     * @param {boolean} force - If true, navigates immediately (for Enter key press).
-     */
-    handleSearch(force = false) {
-      if (force) {
-        clearTimeout(this.debounceTimer);
-      }
-      if (this.searchQuery.trim()) {
-        // Used router.replace for live search to avoid polluting browser history
-        // Used router.push for explicit search (Enter/Click)
-        const navigationMethod = force ? this.$router.push : this.$router.replace;
-        
-        navigationMethod({
-          path: '/search',
-          query: { q: this.searchQuery }
-        });
-        if (force) {
-          this.searchQuery = '';
-        }
-      } else {
-        if (this.$route.path === '/search') {
-          this.$router.push('/admin/dashboard');  
-        }
-      }
-    },
-
-    debounceSearch() {
-      clearTimeout(this.debounceTimer); 
-      this.debounceTimer = setTimeout(() => {
-        this.handleSearch(false); 
-      }, 500);
-    }
   },
 };
 </script>

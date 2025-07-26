@@ -38,6 +38,11 @@
               <i class="bi bi-emoji-smile"></i> Well done!
             </p>
           </div>
+          <div class="card-footer d-flex justify-content-end">
+            <router-link to="/user-dashboard" class="btn btn-primary">
+              Go to Dashboard
+            </router-link>
+          </div>
         </div>
       </div>
     </div>
@@ -101,3 +106,4 @@ export default {
   border-bottom: 0;
 }
 </style>
+

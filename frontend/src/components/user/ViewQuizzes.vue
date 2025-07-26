@@ -1,9 +1,19 @@
 <template>
   <div class="container mt-4">
     <div class="dashboard">
-      <h2 class="text-white mb-4">Available Quizzes</h2>
-      <div v-if="quizzes.length > 0" class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
-        <div v-for="quiz in quizzes" :key="quiz.id" class="col">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-white mb-0">Available Quizzes</h2>
+        <div style="width: 30%;">
+          <input
+            type="text"
+            class="form-control"
+            placeholder="Search quizzes..."
+            v-model="searchQuery"
+          />
+        </div>
+      </div>
+      <div v-if="filteredQuizzes.length > 0" class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+        <div v-for="quiz in filteredQuizzes" :key="quiz.id" class="col">
           <div class="card quiz-card h-100 bg-dark text-white border-light shadow-sm">
             <div class="card-body d-flex flex-column">
               <h5 class="card-title">Subject : {{ quiz.chapter.course.s_name }}</h5>
@@ -23,7 +33,8 @@
         </div>
       </div>
       <div v-else class="text-center text-white-50 py-5">
-        <p>No quizzes found for this chapter.</p>
+        <p v-if="searchQuery">No quizzes found matching your search.</p>
+        <p v-else>No quizzes found for this chapter.</p>
       </div>
     </div>
   </div>
@@ -40,7 +51,22 @@ export default {
   data() {
     return {
       quizzes: [],
+      searchQuery: '',
     };
+  },
+  computed: {
+    filteredQuizzes() {
+      if (!this.searchQuery) {
+        return this.quizzes;
+      }
+      const query = this.searchQuery.toLowerCase();
+      return this.quizzes.filter(quiz => {
+        const quizName = quiz.q_name.toLowerCase();
+        const chapterName = quiz.chapter.name.toLowerCase();
+        const subjectName = quiz.chapter.course.s_name.toLowerCase();
+        return quizName.includes(query) || chapterName.includes(query) || subjectName.includes(query);
+      });
+    }
   },
   methods: {
     async getQuizzes() {
@@ -49,22 +75,18 @@ export default {
         console.error('No token found, redirecting to login.');
         this.$router.push({ name: 'login-page' });
         return;
-      }
-      
+      }      
       try {
         const response = await fetch(`/api/user/chap/${this.chapId}`, {
           headers: {
             'Authorization': `Bearer ${tkn}`,
           },
         });
-
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-
         const data = await response.json();
         this.quizzes = data.quizzes;
-
       } catch (error) {
         console.error("Failed to fetch quizzes:", error);
       }
@@ -82,13 +104,11 @@ export default {
   padding: 20px;
   border-radius: 10px;
 }
-
 .quiz-card {
   background-color: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   min-height: 320px; 
 }
-
 .text-white {
   color: #fff;
 }
