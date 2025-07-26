@@ -16,7 +16,7 @@ export default {
   },
   computed: {
     showNavBar() {
-      const hiddenRoutes = ['/login', '/register'];
+      const hiddenRoutes = ['/login'];
       return !hiddenRoutes.includes(this.$route.path);
     },
     gradientStyle() {

@@ -16,33 +16,30 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <div class="d-flex flex-grow-1 align-items-center justify-content-between">
           <ul class="navbar-nav mb-2 mb-lg-0 d-flex flex-row align-items-center gap-3">
-            <li class="nav-item" v-if="isLoggedIn && userRole === 'user'">
-              <router-link to="/performance" class="nav-link">Performance Summary</router-link>
-            </li>
-          </ul>
+            </ul>
           <div class="d-flex align-items-center gap-2">
-            <!-- Search form has been removed -->
-            <router-link v-if="isLoggedIn" to="/admin/dashboard" class="btn btn-outline-primary mx-2">Home</router-link>
-
             <router-link
-              v-if="isLoggedIn && userRole === 'admin'"
-              to="/admin/summary"
-              class="btn btn-outline-primary mx-2">Summary</router-link>
-            
+              v-if="isLoggedIn"
+              :to="homeRoute"
+              class="btn btn-outline-primary mx-2">Home</router-link>
             <button
               v-if="isLoggedIn"
               class="btn btn-outline-danger"
               @click="handleLogout"
             >
               Logout
-            </button>
-            <router-link
-              v-if="!isLoggedIn"
-              to="/register"
-              class="btn btn-primary"
-            >
-              Sign Up
-            </router-link>
+            </button> 
+            <div v-if="!isLoggedIn">
+              <router-link
+                v-if="$route.path === '/register'"
+                to="/"
+                class="btn btn-primary"
+              >Login</router-link>
+              <router-link
+                v-else
+                to="/register"
+                class="btn btn-primary"> Sign Up</router-link>
+            </div>         
           </div>
         </div>
       </div>
@@ -53,11 +50,23 @@
 <script>
 import { useAuthStore } from '@/stores/authStore';
 import { mapState } from 'pinia';
-
 export default {
   name: "NavBar",
   computed: {
-    ...mapState(useAuthStore, ['isLoggedIn', 'userRole']),
+    // Maps state from your Pinia store
+    ...mapState(useAuthStore, {
+      isLoggedIn: 'isLoggedIn',
+      userRole: 'role'
+    }),
+    homeRoute() {
+      if (this.userRole === 'admin') {
+        return '/admin/dashboard';
+      }
+      if (this.userRole === 'user') {
+        return '/user-dashboard';
+      }
+      return '/';
+    }
   },
   methods: {
     handleLogout() {

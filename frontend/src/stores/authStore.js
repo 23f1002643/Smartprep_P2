@@ -6,11 +6,9 @@ export const useAuthStore = defineStore('auth', {
     role: localStorage.getItem('role') || null,
     userInfo: JSON.parse(localStorage.getItem('user_info')) || null,
   }),
-
   getters: {
     isLoggedIn: (state) => !!state.token,
   },
-
   actions: {
     async login(credentials) {
       try {
@@ -21,14 +19,10 @@ export const useAuthStore = defineStore('auth', {
           },
           body: JSON.stringify(credentials),
         });
-
         const data = await response.json();
-
         if (!response.ok) {
-          console.error('Login failed:', data.msg);
-          return false;
+          throw new Error(data.msg || 'An unknown login error occurred.');
         }
-
         this.token = data.access_token;
         this.userInfo = data.user;
         this.role = data.user.role;
@@ -36,14 +30,12 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('token', this.token);
         localStorage.setItem('user_info', JSON.stringify(this.userInfo));
         localStorage.setItem('role', this.role);
-
-        alert(`Welcome, ${data.user.name}! You are now logged in.`);
         
+        alert(`Welcome, ${data.user.name}! You are now logged in.`);
         return true;
-
       } catch (error) {
-        console.error('An error occurred during login:', error);
-        return false;
+        console.error('An error occurred during login:', error.message);
+        throw error;
       }
     },
 

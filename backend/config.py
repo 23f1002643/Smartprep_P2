@@ -1,9 +1,14 @@
 import os
 from datetime import timedelta
 
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
 config_settings = {
     'FLASK_DEBUG': os.getenv('FLASK_DEBUG', True),
-    'SQLALCHEMY_DATABASE_URI': os.getenv('DATABASE_URI', 'sqlite:///db.sqlite3'),
+
+    # Used an absolute path for the database to ensure Flask and Celery use the same file.
+    'SQLALCHEMY_DATABASE_URI': os.getenv('DATABASE_URI', f"sqlite:///{os.path.join(BASE_DIR, 'backend', 'db.sqlite3')}"),
+    
     'SQLALCHEMY_TRACK_MODIFICATIONS': False,
     'SECRET_KEY': os.getenv('SECRET_KEY', 'my_secret_key'),
     'PERMANENT_SESSION_LIFETIME': timedelta(minutes=30),
@@ -23,13 +28,12 @@ config_settings = {
     'JWT_ACCESS_TOKEN_EXPIRES': timedelta(days=1),
     'JWT_BLOCKLIST': set(),
 
-
     # Email - MailHog Configuration
     'MAIL_SERVER': 'localhost',
     'MAIL_PORT': int(os.getenv('MAIL_PORT', 1025)),
     'MAIL_USE_TLS': False,
     'MAIL_USE_SSL': False,
-    'MAIL_USERNAME': os.getenv('MAIL_USERNAME', None),     
+    'MAIL_USERNAME': os.getenv('MAIL_USERNAME', None),      
     'MAIL_PASSWORD': os.getenv('MAIL_PASSWORD', None),      
     'MAIL_DEFAULT_SENDER': os.getenv('MAIL_DEFAULT_SENDER', 'Smartprep <admin@quizmaster.com>')
 }

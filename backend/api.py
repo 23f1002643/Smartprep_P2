@@ -59,8 +59,8 @@ class AccountLoginAPI(Resource):
             return {"msg": "Username and password are required"}, 400
 
         user = Account.query.filter_by(username=username).first()
-        print(f"Comparing request pwd: {repr(pwd)}")
-        print(f"With database pwd:   {repr(user.pwd)}")
+        if user.active == False:
+            return {"msg": "Your account is inactive. Please contact the administrator."}, 403
         if user and user.pwd == pwd:
             tkn = create_access_token(identity=str(user.id),additional_claims={"name": user.username,"role": user.role})
             print(f"User {user.username} logged in successfully. on {datetime.now()}")

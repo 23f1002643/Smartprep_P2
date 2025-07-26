@@ -49,7 +49,10 @@ redis-server
 redis-cli ping
 # Output: PONG
 ```
-
+### for clear redis cache
+```bash
+redis-cli -n 1 FLUSHDB  # or redis-cli -n 0 FLUSHDB
+```
 #### 6. Start Celery Worker
 ```bash
 python3 -m celery -A app.celery worker --loglevel=info
