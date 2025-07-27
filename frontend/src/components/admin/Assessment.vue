@@ -38,7 +38,6 @@
       <div class="row mt-3">
         <div class="col-md-6">
           <div class="input-group shadow-sm">
-            <!-- <span class="input-group-text "><i class="fas fa-search"></i></span> -->
             <input
               type="text"
               class="form-control border-0"

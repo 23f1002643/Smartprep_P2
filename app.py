@@ -1,12 +1,12 @@
-from flask import Flask, jsonify 
-from flask_restful import Api, abort
+from flask import Flask
+from flask_restful import Api
 import os
-from flask_jwt_extended import JWTManager, exceptions as jwt_exceptions
-from flask_jwt_extended.exceptions import NoAuthorizationError, JWTDecodeError
-from datetime import datetime, timezone
-from backend.models import db, Account
+from flask_jwt_extended import JWTManager
+from datetime import datetime
+from backend.extensions import caching, db
+from backend.models import Account
 from backend.config import config_settings
-from backend.worker import *
+from backend.worker import make_celery, CeleryConfig
 from backend.api  import (
     AccountRegisterAPI,
     AccountLoginAPI,
@@ -18,7 +18,7 @@ from backend.api  import (
     AssessmentMngAPI,
     UserMngAPI,
     UserDashAPI,
-    caching, jwt_blocklist, ChapAPI_User, QuizAPI_User, QuizStartAPI, ScoreHistoryAPI, AdminStatisticsAPI, UserStatisticsAPI, TaskStatusAPI, SearchAPI
+    jwt_blocklist, ChapAPI_User, QuizAPI_User, QuizStartAPI, ScoreHistoryAPI, AdminStatisticsAPI, UserStatisticsAPI, TaskStatusAPI, SearchAPI
 )
 
 def init_app(): # Function to initialize Flask app
@@ -27,10 +27,11 @@ def init_app(): # Function to initialize Flask app
     # Creating the instance folder 
     os.makedirs(instance_path, exist_ok=True)
     print(f"✅ Instance folder ensured at: {instance_path}") 
-    ns = Flask(__name__, instance_relative_config=True, instance_path=instance_path, template_folder=os.path.join('backend', 'templates'))
+    ns = Flask(__name__, instance_relative_config=True, instance_path=instance_path)
     ns.config.from_mapping(config_settings) 
     db.init_app(ns)
     caching.init_app(ns)  # Initializing cache with Flask app
+    
     with ns.app_context():
         db.create_all()
         print("✅ Database tables created successfully.") 
@@ -78,7 +79,6 @@ my_api.add_resource(AssessmentMngAPI, '/api/admin/sub/<int:sub_id>/chap/<int:cha
 my_api.add_resource(AccountRegisterAPI, '/api/register')
 my_api.add_resource(AccountLoginAPI, '/api/login')
 my_api.add_resource(AccountLogoutAPI, '/api/logout') 
-# my_api.add_resource(AccountDashboardAPI, '/api/dashboard')
 my_api.add_resource(SubManagementAPI, '/api/sub', '/api/sub/<int:sub_id>')
 my_api.add_resource(UserMngAPI, '/api/admin/user', '/api/admin/user/<int:user_id>')
 my_api.add_resource(AdminStatisticsAPI, '/api/admin/statistics')

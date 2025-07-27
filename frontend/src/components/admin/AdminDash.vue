@@ -51,7 +51,7 @@ export default {
     const role = localStorage.getItem('role');
     if (role !== 'admin') {
       alert('Access denied. Admins only.');
-      this.$router.push('/'); // Redirect non-admin users to the home page.
+      this.$router.push('/'); // Redirect non-admin users to the login page.
     }
   },
 };

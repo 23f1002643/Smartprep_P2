@@ -5,13 +5,10 @@ from datetime import datetime, timedelta
 from sqlalchemy import func
 from backend.config import config_settings
 import smtplib, os, tempfile, shutil, csv, json
-from flask import render_template
-# from app import ns
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
-# from celery.schedules import crontab
 
 @shared_task
 def greeting_task():
@@ -46,7 +43,6 @@ def send_email(to_email, sub, body, att_path=None):
         #sending email
         try:
             server = smtplib.SMTP(smtp_server, smtp_port)
-            # server.login(sender_email, config_settings['MAIL_PASSWORD'])
             server.send_message(msg)
             server.quit()
             
@@ -211,7 +207,6 @@ def generate_monthly_report(self):
     today = datetime.now().date()
     start_date = today.replace(day=1)
     end_date = today + timedelta(days=1)
-
 
     users = Account.query.filter_by(active=True, role='user').all()
 
@@ -428,30 +423,24 @@ def export_user_data_by_admin(self, admin_id):
                     'Average' if average_percentage >= 40 else
                     'Below Average'
                 )
-                
-                # --- THIS IS THE CORRECTED LINE ---
                 writer.writerow({
                     'user_id': user.id, 'username': user.username, 'full_name': f"{user.f_name} {user.l_name}",
                     'email': user.email, 'mobile_no': user.mobile_no, 'qualification': user.edu_qul,
                     'dob': user.dob, 'registration_date': user.reg_date, 'active_status': user.active,
                     'total_quizzes_taken': total_quizzes, 'total_score': total_score, 'total_max_marks': total_max_marks,
                     'average_percentage': average_percentage, 'last_quiz_date': last_quiz_date, 'performance_level': performance_level
-                })
-                
+                })   
                 progress = 20 + int((i + 1) / total_users * 60)
                 self.update_state(
                     state='PROGRESS',
                     meta={'current': progress, 'total': 100, 'status': f'Processing user {i + 1}/{total_users}'}
-                )
-        
+                )   
         self.update_state(
             state='PROGRESS',
             meta={'current': 85, 'total': 100, 'status': 'Sending CSV via email...'}
-        )
-        
+        )  
         admin_name = f"{admin.f_name} {admin.l_name}"
         export_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        user_count = len(users)
 
         email_body = f"""
         <html>
@@ -462,7 +451,7 @@ def export_user_data_by_admin(self, admin_id):
         </html>
         """
 
-        subject = f"Admin User Data Export - {datetime.now().strftime('%Y-%m-%d')}"
+        subject = f"Admin User Data Export - {export_time}"
         email_sent = send_email(admin.email, subject, email_body, csv_path)
         shutil.rmtree(temp_dir)
         

@@ -1,13 +1,13 @@
 from flask_restful import Resource, reqparse
-from flask_jwt_extended import get_jwt, create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request
-from flask import request, jsonify, current_app as ns, session
-from backend.models import db, Account, Courses, CourseModule, Assessment, AssessmentProblem, ExamPerformance
+from sqlalchemy.orm import subqueryload
+from flask_jwt_extended import get_jwt, create_access_token, jwt_required, get_jwt_identity
+from flask import request, jsonify
+from backend.models import Account, Courses, CourseModule, Assessment, AssessmentProblem, ExamPerformance
 from datetime import datetime 
-from flask_caching import Cache
 from backend.config import config_settings
+from backend.extensions import caching, db
 from sqlalchemy import func
 from backend.tasks import *
-caching = Cache(config={'CACHE_TYPE': 'SimpleCache'})
 
 class AccountRegisterAPI(Resource):  
     def post(self):
@@ -87,7 +87,7 @@ class AccountLogoutAPI(Resource):
     
 class SubManagementAPI(Resource):
     @jwt_required()
-    @caching.cached(timeout=60)
+    @caching.cached(timeout=300)  
     def get(self):
         claims = get_jwt()
         if claims.get('role') != 'admin':
@@ -98,8 +98,6 @@ class SubManagementAPI(Resource):
             'name': sub.s_name,
             'desc': sub.remarks
         } for sub in subjects]
-
-        caching.set("subjects_admin", data, timeout=60)
         return data, 200
 
     @jwt_required()
@@ -111,14 +109,13 @@ class SubManagementAPI(Resource):
         info = request.get_json()
         name = info['s_name']
         desc = info['remarks']
-        print("Received data:", info)  # Debugging line to check received data
+        print("Received data:", info)  
         if Courses.query.filter_by(s_name=name).first():
             return {"msg": "Subject with that name already exists"}, 400
         new_sub = Courses(s_name=name, remarks=desc)
         db.session.add(new_sub)
         db.session.commit()
-        caching.delete("subjects_admin")
-        caching.delete_memoized(SubManagementAPI.get)
+        caching.clear() 
         return {"msg": f"Subject '{name}' added successfully!"}, 201
 
     
@@ -141,7 +138,7 @@ class SubManagementAPI(Resource):
         if desc:
             subject.remarks = desc      
         db.session.commit()
-        caching.delete_memoized(SubManagementAPI.get)
+        caching.clear()
         return {"msg": f"Your subject '{subject.s_name}' updated successfully!"}, 200
     
     @jwt_required()
@@ -155,14 +152,14 @@ class SubManagementAPI(Resource):
         if subject is not None:
             db.session.delete(subject)
             db.session.commit()
-            caching.delete_memoized(SubManagementAPI.get)
+            caching.clear()
             return {"msg": f"Subject '{subject.s_name}' successfully removed!"}, 200
         else:
             return {"msg": "Subject not found!"}, 404
 
 class ModuleMngAPI(Resource):
     @jwt_required()
-    # @caching.cached(timeout=60)
+    @caching.cached(timeout=300)
     def get(self, sub_id):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
@@ -187,6 +184,7 @@ class ModuleMngAPI(Resource):
         new_chap = CourseModule(name=name, description=desc, subject_id=sub_id)
         db.session.add(new_chap)
         db.session.commit()
+        caching.clear()
         return {"msg": f"Chapter {name} added successfully!"}, 201
 
     @jwt_required()
@@ -208,6 +206,7 @@ class ModuleMngAPI(Resource):
         if desc:
             chap.description = desc
         db.session.commit()
+        caching.clear()
         return {"msg": f"Your chapter '{chap.name}' updated successfully!"}, 200
 
     @jwt_required()
@@ -218,13 +217,13 @@ class ModuleMngAPI(Resource):
         if chapter is not None:
             db.session.delete(chapter)
             db.session.commit()
+            caching.clear()
             return {"msg": f"Chapter '{chapter.name}' successfully deleted!"}, 200
         else:
             return {"msg": "Chapter not found!"}, 404
 
 class AssessmentMngAPI(Resource):
     @jwt_required()
-    @caching.cached(timeout=60)
     def get(self, sub_id,chap_id):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
@@ -286,6 +285,7 @@ class AssessmentMngAPI(Resource):
         if remarks:
             exam.remarks = remarks      
         db.session.commit()
+        caching.clear()
         return {"msg": f"Your quiz '{exam.q_name}' updated successfully!"}, 200
     
     @jwt_required()
@@ -296,13 +296,14 @@ class AssessmentMngAPI(Resource):
         if exam is not None:
             db.session.delete(exam)
             db.session.commit()
+            caching.clear()
             return {"msg": f"Quiz '{exam.q_name}' successfully deleted!"}, 200
         else:
             return {"msg": "Quiz not found!"}, 404
         
 class QueMngAPI(Resource):
     @jwt_required()
-    # @caching.cached(timeout=60)
+    @caching.cached(timeout=900)
     def get(self, exam_id, chap_id, sub_id):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
@@ -349,6 +350,7 @@ class QueMngAPI(Resource):
             new_que = AssessmentProblem(que_no=que_no, quiz_id=exam_id, statement=statement, opt1=opt1, opt2=opt2, opt3=opt3, opt4=opt4, cor_opt=cor_opt)
             db.session.add(new_que)
             db.session.commit()
+            caching.clear()
             return {"msg": f"Your question added successfully!"}, 201
         except Exception as e:
             db.session.rollback()
@@ -395,6 +397,7 @@ class QueMngAPI(Resource):
                 return {"msg": "Correct option must be between 1 and 4"}, 400
             question.cor_opt = cor_opt
         db.session.commit()
+        caching.clear()
         return {"msg": f"Your question updated successfully!"}, 200
     
     @jwt_required()
@@ -413,6 +416,7 @@ class QueMngAPI(Resource):
             question_no = question.que_no
             db.session.delete(question)
             db.session.commit()
+            caching.clear()
             return {"msg": f"Question {question_no} successfully deleted!"}, 200
         except Exception as e:
             db.session.rollback()
@@ -420,12 +424,14 @@ class QueMngAPI(Resource):
         
 class UserMngAPI(Resource):
     @jwt_required()
-    # @caching.cached(timeout=60) 
+    @caching.cached(timeout=900) 
     def get(self):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Access denied! Only admin can access"}, 403
         
-        users = Account.query.filter(Account.role != 'admin').all()
+        # users = Account.query.filter(Account.role != 'admin').all()
+        users = Account.query.options(
+            subqueryload(Account.scores)).filter(Account.role != 'admin').all()
         users_data = []
         for user in users:
             total_score = sum(score.score for score in user.scores)
@@ -463,13 +469,14 @@ class UserMngAPI(Resource):
 
         target_user.active = not target_user.active
         db.session.commit()
-        caching.delete_memoized(self.get)
+        caching.clear()
 
         status = "activated" if target_user.active else "deactivated"
         return {"msg": f"User '{target_user.username}' has been {status} successfully!"}, 200
 
 class UserDashAPI(Resource):
     @jwt_required()
+    @caching.cached(timeout=300)
     def get(self):
         user_id = get_jwt_identity()
         user = Account.query.get(user_id)
@@ -496,6 +503,7 @@ class UserDashAPI(Resource):
 
 class ChapAPI_User(Resource):
     @jwt_required()
+    @caching.cached(timeout=300)
     def get(self, sub_id):
         if get_jwt().get('role') != 'user':
             return {"msg": "Access denied! Only Users can access"}, 403
@@ -546,6 +554,7 @@ class QuizAPI_User(Resource):
 
 class QuizStartAPI(Resource): 
     @jwt_required()
+    @caching.cached(timeout=100)
     def get(self, quiz_id):
         if get_jwt().get('role') != 'user':
             return {"msg": "Access denied! Only users can submit quizzes."}, 403
@@ -610,6 +619,7 @@ class QuizStartAPI(Resource):
         )
         db.session.add(new_performance_record)
         db.session.commit()
+        caching.clear()
         return {
             "msg": "Quiz submitted successfully!",
             "score": score,
@@ -618,6 +628,7 @@ class QuizStartAPI(Resource):
 
 class ScoreHistoryAPI(Resource):
     @jwt_required()
+    @caching.cached(timeout=300)
     def get(self, user_id):
         if get_jwt().get('role') != 'user':
             return {"msg": "Access denied! Only users can view their score history."}, 403
@@ -640,10 +651,10 @@ class ScoreHistoryAPI(Resource):
 
 class AdminStatisticsAPI(Resource):
     @jwt_required()
+    @caching.cached(timeout=900)
     def get(self):
         if get_jwt().get('role') != 'admin':
             return {"msg": "Admins only!"}, 403
-
         # Quiz Attempts by Subject (for Pie Chart)
         attempts_by_subject_query = db.session.query(
             Courses.s_name,
@@ -654,7 +665,6 @@ class AdminStatisticsAPI(Resource):
          .group_by(Courses.s_name).all()
 
         attempts_by_subject = {subject: count for subject, count in attempts_by_subject_query}
-
         # Average Score by Quiz (for Bar Chart)
         avg_score_by_quiz_query = db.session.query(
             Assessment.q_name,
@@ -693,9 +703,14 @@ class AdminStatisticsAPI(Resource):
 
 class UserStatisticsAPI(Resource): 
     @jwt_required()
+    @caching.cached(timeout=900)
     def get(self):
         user_id = get_jwt_identity()
-        user = db.session.get(Account, user_id)
+        user = Account.query.options(
+            subqueryload(Account.scores)
+            .subqueryload(ExamPerformance.quiz)
+            .subqueryload(Assessment.questions)).get(user_id)
+        
         if not user:
             return {"msg": "User not found"}, 404
         # --- Chart 3 Data: Score in Each Attempted Quiz ---
@@ -707,7 +722,6 @@ class UserStatisticsAPI(Resource):
                 percentage_score = 0
                 if total_marks > 0:
                     percentage_score = round((score.score / total_marks) * 100, 2)
-                
                 my_quiz_scores.append({"name": score.quiz.q_name, "score": percentage_score})
 
         subject_scores = {}

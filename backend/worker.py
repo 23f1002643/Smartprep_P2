@@ -1,5 +1,4 @@
 from celery import Celery, Task
-from backend.config import config_settings
 from flask import Flask
 from celery.schedules import crontab
 
@@ -14,15 +13,14 @@ class CeleryConfig:
         },
         "daily-user-reminder-at-6pm": {
             "task": "backend.tasks.email_for_daily_reminders",
-            "schedule": crontab(hour=1, minute=0),  # 6 PM IST daily
+            "schedule": crontab(hour=22, minute=8),  # 6 PM IST daily
             "args": (),
         },
         "monthly-report-generation": {
             "task": "backend.tasks.generate_monthly_report",
-            "schedule": crontab(day_of_month=27, hour=1, minute=0),  # 27th day of every month at 12:16 AM
+            "schedule": crontab(day_of_month=27, hour=22, minute=10),  # 27th day of every month at 10:10 PM
             "args": (),
-        },
-        
+        },     
     }
     timezone = "Asia/Kolkata"
     enable_utc = True

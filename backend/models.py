@@ -1,16 +1,13 @@
-from flask_sqlalchemy import SQLAlchemy  
-from datetime import datetime, timezone
-# from pytz import timezone
+from datetime import datetime
+from backend.extensions import db
 
-db = SQLAlchemy() 
+
 Base = db.Model
-# IST = timezone('Asia/Kolkata')
 class Account(Base):
     __tablename__ = 'Users'
     
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    # reg_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     reg_date = db.Column(db.DateTime, default=datetime.utcnow)
     f_name = db.Column(db.String(80), nullable=False)
     l_name = db.Column(db.String(80), nullable=False)

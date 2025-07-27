@@ -116,14 +116,14 @@ const router = createRouter({
     },
   ],
 })
-// This guard now handles all authentication and authorization logic
+// This guard handles all authentication and authorization logic
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore();
   const publicPages = ['/', '/register'];
   const isPublicPage = publicPages.includes(to.path);
   // --- IF USER IS ALREADY LOGGED IN ---
   if (authStore.isLoggedIn) {
-    // 1a. If a logged-in user tries to access Login/Register page
+    // If a logged-in user tries to access Login/Register page
     if (isPublicPage) {
       return authStore.role === 'admin' ? next('/admin/dashboard') : next('/user-dashboard');
     }

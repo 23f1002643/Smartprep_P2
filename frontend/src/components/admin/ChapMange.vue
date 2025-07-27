@@ -233,7 +233,6 @@ export default {
         name: chapter.name,
         desc: chapter.description,
       };
-
       // Show the Bootstrap modal
       const modalEl = document.getElementById("editChapterModal");
       const modal = new bootstrap.Modal(modalEl);
@@ -267,7 +266,6 @@ export default {
           alert(data.msg || "Chapter updated.");
           this.clearUpdateForm();
           await this.loadChapters();
-
           // Close the modal
           const modalEl = document.getElementById("editChapterModal");
           const modal = bootstrap.Modal.getInstance(modalEl);
